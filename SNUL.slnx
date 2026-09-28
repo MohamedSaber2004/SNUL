@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SNUL/snul.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>
