@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+# The 12 "hash-guaranteed" files are verified by SHA256 in
+# scripts/hash-guard.mjs. Three of them (.env.development, .env.production,
+# .env.test) contain CRLF line endings today, so under the `* text=auto eol=lf`
+# rule above git would normalize them to LF on the next checkout and silently
+# invalidate their recorded digests.
+#
+# `-text` disables all line-ending conversion for these paths, so they round-trip
+# byte-for-byte and the guard stays meaningful.
+.env.development -text
+.env.production  -text
+.env.test         -text
+src/assets/tokens.css        -text
+src/assets/design-tokens.css -text
+src/assets/base.css          -text
+src/assets/components.css    -text
+src/assets/main.css          -text
+src/assets/globals.css       -text
+tailwind.config.js -text
+vercel.json        -text
+vite.config.ts     -text

@@ -1,0 +1,233 @@
+/* SNUL Clinical Precision — Token Aliases
+ * Single source of truth is ./design-tokens.css.
+ * This file aliases legacy --wl-* / --base / --surface / --ink tokens
+ * to semantic tokens so all views + components inherit the new system.
+ */
+@import './design-tokens.css';
+
+:root {
+  color-scheme: light;
+
+  /* ── Type — Plus Jakarta Sans (display) + Inter (body) + Cairo (Arabic) ── */
+  --wl-font-display: var(--font-display);
+  --wl-font-body: var(--font-sans);
+  --wl-font-mono: var(--font-mono);
+  --step--1: var(--text-sm);
+  --step-0: var(--text-base);
+  --step-1: var(--text-lg);
+  --step-2: var(--text-xl);
+  --step-3: var(--text-3xl);
+  --step-4: var(--text-4xl);
+  --wl-leading-body: var(--leading-normal);
+  --wl-leading-display: var(--leading-tight);
+
+  /* ── 8-Token Standard + Surfaces → semantic tokens ── */
+  --base: var(--bg-app);
+  --surface: var(--bg-surface);
+  --surface-soft: var(--bg-subtle);
+  --ink: var(--fg-body);
+  --ink-strong: var(--fg-heading);
+  --ink-2: var(--fg-muted);
+  --ink-3: var(--fg-subtle);
+  --ink-soft: var(--fg-muted);
+  --muted: var(--fg-subtle);
+  --muted-soft: var(--fg-placeholder);
+  --line: var(--border);
+  --line-strong: var(--border-strong);
+  --sk-shimmer: linear-gradient(90deg, var(--bg-subtle) 0%, var(--bg-subtle) 25%, rgba(255, 255, 255, 0.85) 50%, var(--bg-subtle) 75%, var(--bg-subtle) 100%);
+
+  --primary: var(--brand);
+  --primary-hover: var(--brand-hover);
+  --primary-soft: var(--brand-soft);
+  --gold: var(--fg-warning);
+  --gold-soft: var(--color-warning-100);
+  --success: var(--fg-success);
+  --success-soft: var(--color-success-100);
+  --danger: var(--fg-danger);
+  --danger-soft: var(--color-danger-100);
+  --warning: var(--fg-warning);
+  --warning-soft: var(--color-warning-100);
+
+  --accent: var(--color-accent-600);
+  --accent-hover: var(--color-accent-700);
+  --accent-soft: var(--color-accent-100);
+  --accent-ink: #ffffff;
+  --on-accent: var(--fg-on-brand);
+
+  /* Gradients */
+  --wl-gradient-rail: var(--bg-subtle);
+  --wl-gradient-card: var(--bg-surface);
+  --wl-gradient-panel: var(--bg-surface);
+  --wl-gradient-primary: var(--brand-gradient);
+  --wl-gradient-gold: var(--brand-gradient);
+  --wl-gradient-table-head: var(--bg-subtle);
+  --wl-gradient-toolbar: var(--bg-subtle);
+  --wl-gradient-chip: var(--bg-subtle);
+  --wl-laser-sweep: linear-gradient(90deg, transparent, var(--brand), transparent);
+
+  /* Shadows */
+  --shadow-card: var(--shadow-md);
+  --shadow-hover: var(--shadow-lg);
+
+  --wl-gold-text: var(--fg-heading);
+  --wl-gold-text-shadow: none;
+  --wl-gold-title-shadow: var(--shadow-sm);
+  --wl-gold-glow-soft: var(--shadow-brand);
+  --wl-gold-text-filter: none;
+
+  /* State tokens */
+  --wl-surface-hover: var(--bg-hover);
+  --wl-field: var(--bg-surface);
+  --wl-primary-ring: var(--ring-focus);
+  --wl-primary-shadow: var(--shadow-brand);
+  --wl-primary-glow: var(--ring-focus);
+  --wl-focus-ring: var(--ring-focus);
+  --wl-focus-ring-danger: 0 0 0 3px rgba(225, 29, 72, 0.25);
+  --wl-gold-ring: var(--ring-focus);
+  --wl-gold-glow-soft: var(--shadow-brand);
+
+  /* ── SNUL Brand Tokens ── */
+  --snul-primary: var(--brand);
+  --snul-primary-hover: var(--brand-hover);
+  --snul-primary-soft: var(--brand-soft);
+  --snul-accent: var(--accent);
+  --snul-accent-hover: var(--accent-hover);
+  --snul-accent-soft: var(--accent-soft);
+
+  /* ── Backward-compatible aliases ── */
+  --wl-primary: var(--brand);
+  --wl-primary-hover: var(--brand-hover);
+  --wl-primary-soft: var(--brand-soft);
+  --wl-primary-rgb: 12, 99, 184;
+  --wl-accent: var(--color-accent-600);
+  --wl-accent-hover: var(--color-accent-700);
+  --wl-accent-soft: var(--color-accent-100);
+  --wl-accent-rgb: 2, 132, 199;
+  --wl-success: var(--fg-success);
+  --wl-success-soft: var(--color-success-100);
+  --wl-success-rgb: 5, 150, 105;
+  --wl-danger: var(--fg-danger);
+  --wl-danger-soft: var(--color-danger-100);
+  --wl-danger-rgb: 225, 29, 72;
+  --wl-warning: var(--fg-warning);
+  --wl-warning-soft: var(--color-warning-100);
+  --wl-warning-rgb: 217, 119, 6;
+  --wl-info: var(--fg-info);
+  --wl-info-soft: var(--color-info-100);
+  --wl-info-rgb: 2, 132, 199;
+  --wl-muted: var(--fg-subtle);
+  --wl-muted-soft: var(--fg-placeholder);
+  --wl-ink: var(--fg-body);
+  --wl-ink-strong: var(--fg-heading);
+  --wl-ink-soft: var(--fg-muted);
+  --wl-line: var(--border);
+  --wl-line-strong: var(--border-strong);
+  --wl-border: var(--border);
+  --wl-border-strong: var(--border-strong);
+  --wl-surface: var(--bg-surface);
+  --wl-surface-soft: var(--bg-subtle);
+  --wl-bg-app: var(--bg-app);
+  --wl-bg-surface: var(--bg-surface);
+  --wl-bg-surface-soft: var(--bg-subtle);
+  --wl-paper: var(--bg-app);
+  --wl-paper-rgb: 244, 248, 252;
+  --wl-surface-rgb: 255, 255, 255;
+  --wl-ink-rgb: 38, 59, 77;        /* neutral-700 #263B4D */
+  --wl-ink-strong-rgb: 22, 39, 54; /* neutral-800 #162736 */
+  --wl-ink-soft-rgb: 98, 125, 151; /* neutral-500 #627D97 */
+  --wl-muted-rgb: 141, 164, 190;   /* neutral-400 #8DA4BE */
+  --wl-line-rgb: 216, 228, 240;
+  --wl-border-rgb: 216, 228, 240;
+  --wl-on-primary: var(--fg-on-brand);
+  --wl-on-accent: var(--fg-on-brand);
+  --wl-on-gold: var(--fg-on-brand);
+  --wl-gold: var(--fg-warning);
+  --wl-gold-hover: var(--fg-warning);
+  --wl-gold-soft: var(--color-warning-100);
+  --wl-gold-rgb: 234, 179, 8;
+  --wl-emerald: var(--fg-success);
+  --wl-emerald-soft: var(--color-success-100);
+  --wl-emerald-rgb: 22, 163, 74;
+  --wl-emerald-faint: var(--color-success-100);
+  --wl-teal: var(--color-primary-600);
+  --wl-teal-soft: var(--color-primary-100);
+  --wl-teal-dark: var(--color-primary-700);
+  --wl-teal-faint: var(--color-primary-50);
+  --wl-rose: var(--fg-danger);
+  --wl-rose-soft: var(--color-danger-100);
+  --wl-rose-faint: var(--color-danger-100);
+  --wl-amber-faint: var(--color-warning-100);
+  --wl-danger-faint: var(--color-danger-100);
+  --wl-indigo: var(--brand);
+  --wl-indigo-soft: var(--brand-soft);
+  --wl-indigo-light: var(--color-primary-400);
+  --wl-primary-light: var(--color-primary-400);
+  --wl-primary-active: var(--brand-hover);
+  --wl-sky: var(--fg-info);
+  --wl-sky-soft: var(--color-info-100);
+  --wl-blue: var(--color-info-500);
+  --wl-blue-soft: var(--color-info-100);
+  --wl-gold-light: var(--color-warning-500);
+  --wl-admin: var(--fg-warning);
+  --wl-admin-soft: var(--color-warning-100);
+  --wl-shadow: var(--shadow-md);
+  --wl-shadow-sm: var(--shadow-sm);
+  --wl-shadow-md: var(--shadow-md);
+  --wl-shadow-lg: var(--shadow-lg);
+  --wl-shadow-xl: var(--shadow-lg);
+  --wl-shadow-card: var(--shadow-md);
+  --wl-shadow-hover: var(--shadow-lg);
+  --wl-shadow-modal: var(--shadow-lg);
+  --wl-shadow-primary: var(--shadow-brand);
+  --wl-transition: var(--duration-base) var(--ease-out);
+  --wl-ease-spring: var(--ease-out);
+  --wl-max-width: var(--content-max);
+  --wl-max-width-admin: var(--content-max);
+  --wl-header-height: var(--topbar-height);
+  --wl-touch-min: 44px;
+  --wl-header-search-min: 170px;
+  --wl-header-search-max: 230px;
+  --wl-rail-width: var(--sidebar-width);
+  --wl-rail-collapsed: var(--sidebar-width-collapsed);
+  --wl-gutter: var(--gutter);
+  --wl-section: var(--space-16);
+  --wl-page-padding-top: var(--space-7);
+  --wl-page-padding-bottom: var(--space-12);
+  --wl-page-gap: var(--space-6);
+  --wl-section-gap: var(--space-10);
+  --wl-card-padding: var(--space-6);
+  --wl-card-padding-sm: var(--space-4);
+  --wl-card-padding-lg: var(--space-8);
+  --wl-form-gap: var(--space-5);
+  --wl-field-gap: var(--space-2);
+  --wl-table-cell-padding-y: var(--space-2);
+  --wl-table-cell-padding-x: var(--space-3);
+  --wl-table-cell-padding: var(--space-2) var(--space-3);
+  --wl-modal-padding: var(--space-6);
+  --wl-modal-padding-sm: var(--space-4);
+  --wl-control-sm: 32px;
+  --wl-control-md: 36px;
+  --wl-control-lg: 44px;
+  --wl-table-action-size: 27px;
+  --wl-primary-active: var(--brand-hover);
+  --wl-primary-faint: var(--brand-soft);
+  --wl-text-primary: var(--fg-heading);
+  --wl-text-secondary: var(--fg-body);
+  --wl-text-muted: var(--fg-subtle);
+  --wl-row-alt: var(--bg-subtle);
+  --wl-app-glow: none;
+  --wl-gradient-app: none;
+  --wl-gradient-modal: var(--bg-surface);
+  --wl-gradient-secondary: var(--bg-surface);
+  --wl-dir-sign: var(--flip);
+
+  /* ── Platform landing-page tokens → Arctic Frost ── */
+  --platform-mist:       var(--bg-app);               /* #F4F8FC arctic canvas      */
+  --platform-ink:        var(--fg-heading);            /* #0B1726 dominant navy ink  */
+  --platform-ink-soft:   var(--fg-muted);              /* #42576B secondary text     */
+  --platform-teal:       var(--brand);                 /* #0C63B8 navy sapphire      */
+  --platform-lime:       var(--accent);                /* #0284C7 glacial ice-cyan   */
+  --platform-aqua:       var(--color-primary-100);     /* #E0EFFE soft primary tint  */
+  --platform-border:     var(--border);                /* #D8E4F0 arctic border      */
+  --platform-shadow:     var(--shadow-lg);
+}

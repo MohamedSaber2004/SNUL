@@ -1,0 +1,248 @@
+/* ==========================================================================
+   SNUL Clinical Precision — Design Tokens
+   Single source of truth for color, type, space, radius, elevation, motion.
+   Load this file BEFORE components.css.
+
+   Palette: Arctic Frost & Deep Navy (Cold Clinical Clarity)
+   Typography: Plus Jakarta Sans (Display) + Inter (Body) + Cairo (Arabic) + JetBrains Mono (Codes/DIN)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Fonts
+   -------------------------------------------------------------------------- */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ------------------------------------------------------------------
+     2. Raw palette — Arctic Frost & Deep Navy
+     Medical clinical clarity: deep oceanic sapphire navy, vibrant ice-cyan,
+     and arctic slate neutrals.
+     ------------------------------------------------------------------ */
+
+  /* Primary — Authoritative Deep Oceanic Navy & Clinical Sapphire */
+  --color-primary-50:  #F0F7FF;
+  --color-primary-100: #E0EFFE;
+  --color-primary-200: #BAE0FD;
+  --color-primary-300: #7DC4FA;
+  --color-primary-400: #38A2F6;
+  --color-primary-500: #1382E6;
+  --color-primary-600: #0C63B8;  /* Core brand navy sapphire — WCAG AAA contrast */
+  --color-primary-700: #0A4F96;  /* Primary hover state */
+  --color-primary-800: #0C427B;  /* Primary active state */
+  --color-primary-900: #0E3663;  /* Deep navy ink */
+  --color-primary-950: #0A2342;  /* Midnight oceanic navy */
+
+  /* Accent — Vivid Glacial Ice-Cyan & Arctic Blue */
+  --color-accent-50:  #F0FDFA;
+  --color-accent-100: #CCFBF1;
+  --color-accent-200: #99F6E4;
+  --color-accent-300: #5EEAD4;
+  --color-accent-400: #2DD4BF;
+  --color-accent-500: #0EA5E9;  /* Bright ice-cyan highlight */
+  --color-accent-600: #0284C7;  /* High-contrast glacial accent */
+  --color-accent-700: #0369A1;  /* Accent hover */
+  --color-accent-800: #075985;
+  --color-accent-900: #0C4A6E;
+
+  /* Neutrals — Crisp Arctic Frost Slate Scale */
+  --color-neutral-0:   #FFFFFF;  /* Pure white surface & cards */
+  --color-neutral-25:  #FAFCFF;  /* Soft card highlight / table zebra */
+  --color-neutral-50:  #F4F8FC;  /* Arctic Frost canvas / page background */
+  --color-neutral-100: #EBF2F9;  /* Subtle container low / inactive fill */
+  --color-neutral-200: #D8E4F0;  /* Arctic hairline border & dividers */
+  --color-neutral-300: #BDD1E5;  /* Strong divide / form outline */
+  --color-neutral-400: #8DA4BE;  /* Placeholder & muted indicator */
+  --color-neutral-500: #627D97;  /* Ink-3: captions, micro metadata */
+  --color-neutral-600: #42576B;  /* Ink-2: secondary / muted body text */
+  --color-neutral-700: #263B4D;  /* Standard body text */
+  --color-neutral-800: #162736;  /* Strong high-contrast body text */
+  --color-neutral-900: #0B1726;  /* Dominant headings / primary ink */
+
+  /* Status */
+  --color-success-500: #059669;
+  --color-success-600: #047857;
+  --color-success-100: #D1FAE5;
+  --color-warning-500: #D97706;
+  --color-warning-600: #B45309;
+  --color-warning-100: #FEF3C7;
+  --color-danger-500:  #E11D48;
+  --color-danger-600:  #BE123C;
+  --color-danger-100:  #FFE4E6;
+  --color-info-500:    #0284C7;
+  --color-info-600:    #0369A1;
+  --color-info-100:    #E0F2FE;
+
+  /* ------------------------------------------------------------------
+     3. Semantic tokens — what components actually reference
+     ------------------------------------------------------------------ */
+
+  /* Surfaces */
+  --bg-app:        var(--color-neutral-50);
+  --bg-surface:    var(--color-neutral-0);
+  --bg-sidebar:    var(--color-neutral-0);
+  --bg-subtle:     var(--color-neutral-100);
+  --bg-hover:      var(--color-primary-50);
+  --bg-overlay:    rgba(11, 23, 38, 0.52);
+
+
+  /* Text — rich navy scale (not black, full color character) */
+  --fg-heading:    var(--color-neutral-800);   /* #162736 deep slate-navy  */
+  --fg-body:       var(--color-neutral-700);   /* #263B4D standard navy    */
+  --fg-muted:      var(--color-neutral-500);   /* #627D97 steel-blue muted */
+  --fg-subtle:     var(--color-neutral-400);   /* #8DA4BE cool mid-blue    */
+  --fg-placeholder:var(--color-neutral-300);   /* #BDD1E5 frost placeholder */
+  --fg-on-brand:   var(--color-neutral-0);
+  --fg-link:       var(--color-primary-600);
+
+
+  /* Brand */
+  --brand:         var(--color-primary-600);
+  --brand-hover:   var(--color-primary-700);
+  --brand-soft:    var(--color-primary-100);
+  --brand-soft-hover: var(--color-primary-200);
+  --color-brand-200: var(--color-primary-200);
+  --brand-gradient: linear-gradient(135deg, #0A4F96 0%, #0C63B8 52%, #0284C7 100%);
+
+  /* Accent */
+  --accent:        var(--color-accent-600);
+  --accent-hover:  var(--color-accent-700);
+  --accent-soft:   var(--color-accent-100);
+
+  /* Borders */
+  --border:        var(--color-neutral-200);
+  --border-strong: var(--color-neutral-300);
+  --border-focus:  var(--color-primary-600);
+
+  /* Feedback */
+  --fg-success: var(--color-success-600);
+  --fg-warning: var(--color-warning-600);
+  --fg-danger:  var(--color-danger-600);
+  --fg-info:    var(--color-info-600);
+
+  /* ------------------------------------------------------------------
+     4. Typography
+     ------------------------------------------------------------------ */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: var(--font-sans);
+  --font-display: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-arabic: "Cairo", "Readex Pro", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  --text-2xs: 0.625rem;  /* 10px — chart axis labels        */
+  --text-xs:  0.6875rem; /* 11px — legends, micro deltas    */
+  --text-sm:  0.75rem;   /* 12px — table body, captions     */
+  --text-md:  0.8125rem; /* 13px — nav items, inputs        */
+  --text-base:0.875rem;  /* 14px — default body             */
+  --text-lg:  1rem;      /* 16px — card titles              */
+  --text-xl:  1.125rem;  /* 18px — section titles           */
+  --text-2xl: 1.5rem;    /* 24px — stat numbers             */
+  --text-3xl: 1.75rem;   /* 28px — page title               */
+  --text-4xl: 2.25rem;   /* 36px — display hero             */
+
+  --weight-light: 400;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.6;
+
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+
+  /* ------------------------------------------------------------------
+     5. Spacing — 4px base scale
+     ------------------------------------------------------------------ */
+  --space-0: 0;
+  --space-1: 0.25rem;  /* 4  */
+  --space-2: 0.5rem;   /* 8  */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.25rem;  /* 20 */
+  --space-6: 1.5rem;   /* 24 */
+  --space-7: 1.75rem;  /* 28 */
+  --space-8: 2rem;     /* 32 */
+  --space-10: 2.5rem;  /* 40 */
+  --space-12: 3rem;    /* 48 */
+  --space-16: 4rem;    /* 64 */
+
+  /* ------------------------------------------------------------------
+     6. Radius
+     ------------------------------------------------------------------ */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 9999px;
+
+  /* ------------------------------------------------------------------
+     7. Elevation & Shadows — Enhanced Clinical Depth
+     ------------------------------------------------------------------ */
+  --shadow-xs: 0 1px 2px rgba(11, 23, 38, 0.04);
+  --shadow-sm: 0 1px 3px rgba(11, 23, 38, 0.06), 0 1px 2px -1px rgba(11, 23, 38, 0.04);
+  --shadow-md: 0 4px 14px -2px rgba(11, 23, 38, 0.07), 0 2px 6px -2px rgba(11, 23, 38, 0.04);
+  --shadow-lg: 0 12px 28px -4px rgba(11, 23, 38, 0.09), 0 4px 12px -4px rgba(11, 23, 38, 0.04);
+  --shadow-xl: 0 20px 36px -6px rgba(11, 23, 38, 0.12), 0 8px 16px -6px rgba(11, 23, 38, 0.05);
+  --shadow-brand: 0 8px 24px -4px rgba(12, 99, 184, 0.30);
+  --ring-focus: 0 0 0 3px rgba(12, 99, 184, 0.22);
+
+  /* ------------------------------------------------------------------
+     8. Layout
+     ------------------------------------------------------------------ */
+  --sidebar-width: 244px;
+  --sidebar-width-collapsed: 76px;
+  --topbar-height: 76px;
+  --content-max: 1440px;
+  --gutter: var(--space-6);
+
+  /* ------------------------------------------------------------------
+     9. Motion
+     ------------------------------------------------------------------ */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  /* ------------------------------------------------------------------
+     10. Z-index
+     ------------------------------------------------------------------ */
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-sidebar: 200;
+  --z-dropdown: 300;
+  --z-overlay: 400;
+  --z-modal: 500;
+  --z-toast: 600;
+  --z-tooltip: 700;
+}
+
+/* --------------------------------------------------------------------------
+   11. Light-only mode — the site is always white/light
+   -------------------------------------------------------------------------- */
+:root,
+:root[data-theme="dark"],
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* --------------------------------------------------------------------------
+   12. Right-to-left support (Arabic typography & layout)
+   -------------------------------------------------------------------------- */
+[dir="rtl"] {
+  --flip: -1;
+  font-family: var(--font-arabic);
+}
+[dir="rtl"] :is(h1, h2, h3, h4, h5, h6, .font-display, .font-display-lg, .font-headline-lg) {
+  font-family: var(--font-arabic);
+  letter-spacing: normal;
+}
+:root {
+  --flip: 1;
+}

@@ -1,0 +1,171 @@
+/* ==========================================================================
+   SNUL Motion Layer
+   --------------------------------------------------------------------------
+   Ported from WELCO's "Motion Layer" and universal animation utilities so the
+   same motion vocabulary is available across SNUL. Lives in its own stylesheet
+   deliberately: it is imported from main.ts AFTER main.css, so motion can be
+   tuned or removed without touching tokens, the palette, or main.css.
+
+   Design rules honoured here:
+   - Every colour, shadow, radius and duration comes from existing SNUL tokens.
+     No new palette values are introduced, and no token file is modified.
+   - `tokens.css` re-declares --shadow-sm/--shadow-md as self-references, which
+     makes them invalid at computed-value time. Shadows therefore carry literal
+     fallbacks matching design-tokens.css so hover elevation still renders.
+   - Nothing here hides content by default. The hidden reveal state is applied
+     only at runtime by the vReveal directive, so a JS failure can never produce
+     an invisible page.
+   - `prefers-reduced-motion: reduce` is treated as a hard safety net: entrance
+     animations, staggers and hovers are neutralised so content still renders.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Keyframes
+   -------------------------------------------------------------------------- */
+
+@keyframes motionFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes motionFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes motionScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Entrance utilities
+   -------------------------------------------------------------------------- */
+
+.anim-fade-in {
+  animation: motionFadeIn var(--duration-base, 200ms) var(--ease-out) forwards;
+}
+
+.anim-fade-in-up {
+  animation: motionFadeInUp var(--duration-base, 220ms) var(--ease-out) forwards;
+}
+
+.anim-scale-in {
+  animation: motionScaleIn var(--duration-fast, 120ms) var(--ease-out) forwards;
+}
+
+/* FLIP timing for <TransitionGroup>; Vue supplies the measurement. */
+.anim-move {
+  transition: transform var(--duration-base, 200ms) var(--ease-out);
+}
+
+/* --------------------------------------------------------------------------
+   Hover / tactile utilities
+   -------------------------------------------------------------------------- */
+
+.anim-card-hover {
+  transition:
+    transform var(--duration-fast, 120ms) var(--ease-out),
+    box-shadow var(--duration-fast, 120ms) var(--ease-out),
+    border-color var(--duration-fast, 120ms) var(--ease-out);
+}
+
+.anim-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(
+    --shadow-md,
+    0 4px 14px -2px rgba(11, 23, 38, 0.07), 0 2px 6px -2px rgba(11, 23, 38, 0.04)
+  );
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
+}
+
+.interactive-lift {
+  transition:
+    transform var(--duration-fast, 120ms) var(--ease-out),
+    box-shadow var(--duration-fast, 120ms) var(--ease-out);
+}
+
+.interactive-lift:hover {
+  transform: translateY(-1px);
+}
+
+.interactive-lift:active {
+  transform: translateY(1px);
+}
+
+.btn-press {
+  transition: transform var(--duration-fast, 120ms) var(--ease-out);
+}
+
+.btn-press:active:not(:disabled) {
+  transform: scale(0.975);
+}
+
+/* Subtle focus/active ring for brand-coloured elements. */
+.glow-brand {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent),
+    var(--shadow-sm, 0 1px 3px rgba(11, 23, 38, 0.06), 0 1px 2px -1px rgba(11, 23, 38, 0.04));
+}
+
+/* --------------------------------------------------------------------------
+   Scroll-reveal (vReveal directive)
+   The hidden state below is applied ONLY by the directive at runtime.
+   -------------------------------------------------------------------------- */
+
+.reveal-pending {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.reveal-pending.is-revealed {
+  animation: motionFadeInUp var(--duration-base, 200ms) var(--ease-out) forwards;
+  animation-delay: calc(min(var(--stagger-i, 0), 8) * 40ms);
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion — safety net. Content must always render.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-pending {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .anim-fade-in,
+  .anim-fade-in-up,
+  .anim-scale-in,
+  .anim-move {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .anim-card-hover,
+  .interactive-lift,
+  .btn-press {
+    transition: none !important;
+  }
+
+  .anim-card-hover:hover,
+  .interactive-lift:hover,
+  .interactive-lift:active,
+  .btn-press:active:not(:disabled) {
+    transform: none !important;
+  }
+}

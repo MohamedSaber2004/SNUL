@@ -1,0 +1,98 @@
+:9002/api/v1/help/faqs:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api-content.repository.ts:143 [content] getFaqs failed ApiError: An internal server error occurred on the server.
+    at run (http-client.ts:314:25)
+    at async HttpClient.withSlot (http-client.ts:423:14)
+    at async HttpClient.tracked (http-client.ts:414:14)
+(anonymous) @ api-content.repository.ts:143
+await in (anonymous)
+(anonymous) @ content.service.ts:77
+(anonymous) @ HomeView.vue:238
+(anonymous) @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3900
+callWithErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1924
+callWithAsyncErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1931
+hook.__weh.hook.__weh @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3889
+flushPostFlushCbs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2056
+flushJobs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2084
+Promise.then
+queueFlush @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2015
+queueJob @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2011
+effect.scheduler @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:5795
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:479
+endBatch @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:529
+notify @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:744
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:736
+set value @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1393
+finalizeNavigation @ vue-router.js?v=87393a15:2627
+(anonymous) @ vue-router.js?v=87393a15:2555
+Promise.then
+pushWithRedirect @ vue-router.js?v=87393a15:2543
+push @ vue-router.js?v=87393a15:2496
+install @ vue-router.js?v=87393a15:2743
+use @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:4625
+(anonymous) @ main.ts:23
+:9002/api/v1/help/categories:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api-content.repository.ts:98 [content] getHelpCategories failed ApiError: An internal server error occurred on the server.
+    at run (http-client.ts:314:25)
+    at async HttpClient.withSlot (http-client.ts:423:14)
+    at async HttpClient.tracked (http-client.ts:414:14)
+(anonymous) @ api-content.repository.ts:98
+await in (anonymous)
+(anonymous) @ content.service.ts:75
+(anonymous) @ HomeView.vue:238
+(anonymous) @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3900
+callWithErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1924
+callWithAsyncErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1931
+hook.__weh.hook.__weh @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3889
+flushPostFlushCbs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2056
+flushJobs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2084
+Promise.then
+queueFlush @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2015
+queueJob @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2011
+effect.scheduler @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:5795
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:479
+endBatch @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:529
+notify @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:744
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:736
+set value @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1393
+finalizeNavigation @ vue-router.js?v=87393a15:2627
+(anonymous) @ vue-router.js?v=87393a15:2555
+Promise.then
+pushWithRedirect @ vue-router.js?v=87393a15:2543
+push @ vue-router.js?v=87393a15:2496
+install @ vue-router.js?v=87393a15:2743
+use @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:4625
+(anonymous) @ main.ts:23
+:9002/api/v1/help/articles:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api-content.repository.ts:121 [content] getHelpArticles failed ApiError: An internal server error occurred on the server.
+    at run (http-client.ts:314:25)
+    at async HttpClient.withSlot (http-client.ts:423:14)
+    at async HttpClient.tracked (http-client.ts:414:14)
+(anonymous) @ api-content.repository.ts:121
+await in (anonymous)
+(anonymous) @ content.service.ts:76
+(anonymous) @ HomeView.vue:238
+(anonymous) @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3900
+callWithErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1924
+callWithAsyncErrorHandling @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1931
+hook.__weh.hook.__weh @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:3889
+flushPostFlushCbs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2056
+flushJobs @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2084
+Promise.then
+queueFlush @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2015
+queueJob @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:2011
+effect.scheduler @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:5795
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:479
+endBatch @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:529
+notify @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:744
+trigger @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:736
+set value @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:1393
+finalizeNavigation @ vue-router.js?v=87393a15:2627
+(anonymous) @ vue-router.js?v=87393a15:2555
+Promise.then
+pushWithRedirect @ vue-router.js?v=87393a15:2543
+push @ vue-router.js?v=87393a15:2496
+install @ vue-router.js?v=87393a15:2743
+use @ vue.runtime.esm-bundler-D2wK8Voh.js?v=0f53703b:4625
+(anonymous) @ main.ts:23
+auth.service.ts:505 [auth] session role → Admin Object
+:9002/api/v1/attachments/upload:1  Failed to load resource: the server responded with a status of 400 (Bad Request)
