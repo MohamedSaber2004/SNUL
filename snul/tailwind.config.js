@@ -64,12 +64,12 @@ export default {
         'input-lg': '52px',
       },
       fontFamily: {
-        display: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-        body: ['"Inter"', 'system-ui', 'sans-serif'],
-        label: ['"Inter"', 'system-ui', 'sans-serif'],
-        arabic: ['"Cairo"', '"Readex Pro"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'SFMono-Regular', 'Consolas', 'Menlo', 'monospace'],
-        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        display: ['Arial'],
+        body: ['Arial'],
+        label: ['Arial'],
+        arabic: ['Arial'],
+        mono: ['Arial'],
+        sans: ['Arial'],
       },
       fontSize: {
         '2xs': 'var(--text-2xs)',

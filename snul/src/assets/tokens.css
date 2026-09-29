@@ -8,10 +8,19 @@
 :root {
   color-scheme: light;
 
-  /* ── Type — Plus Jakarta Sans (display) + Inter (body) + Cairo (Arabic) ── */
+  /* ── Type — Arial (single family across the application) ── */
   --wl-font-display: var(--font-display);
   --wl-font-body: var(--font-sans);
   --wl-font-mono: var(--font-mono);
+
+  /* ── Radii — alias the canonical scale so every consumer resolves ── */
+  --wl-radius-sm: var(--radius-sm);
+  --wl-radius-md: var(--radius-md);
+  --wl-radius-lg: var(--radius-lg);
+  --wl-radius-xl: var(--radius-xl);
+  --wl-radius-card: var(--radius-lg);
+  --wl-radius-full: 9999px;
+  --wl-radius-technical: var(--radius-sm);
   --step--1: var(--text-sm);
   --step-0: var(--text-base);
   --step-1: var(--text-lg);
@@ -48,8 +57,11 @@
   --warning: var(--fg-warning);
   --warning-soft: var(--color-warning-100);
 
-  --accent: var(--color-accent-600);
-  --accent-hover: var(--color-accent-700);
+  /* Must match design-tokens.css. The 600 step (#0284C7) is only 4.09:1
+     against white and is used behind white text throughout (footer status
+     pill, admin action chips), so the 700 step is the AA-compliant default. */
+  --accent: var(--color-accent-700);
+  --accent-hover: var(--color-accent-800);
   --accent-soft: var(--color-accent-100);
   --accent-ink: #ffffff;
   --on-accent: var(--fg-on-brand);
@@ -105,13 +117,13 @@
   --wl-accent-rgb: 2, 132, 199;
   --wl-success: var(--fg-success);
   --wl-success-soft: var(--color-success-100);
-  --wl-success-rgb: 5, 150, 105;
+  --wl-success-rgb: 4, 120, 87;     /* success-600 #047857 */
   --wl-danger: var(--fg-danger);
   --wl-danger-soft: var(--color-danger-100);
-  --wl-danger-rgb: 225, 29, 72;
+  --wl-danger-rgb: 190, 18, 60;     /* danger-600 #BE123C */
   --wl-warning: var(--fg-warning);
   --wl-warning-soft: var(--color-warning-100);
-  --wl-warning-rgb: 217, 119, 6;
+  --wl-warning-rgb: 180, 83, 9;     /* warning-600 #B45309 */
   --wl-info: var(--fg-info);
   --wl-info-soft: var(--color-info-100);
   --wl-info-rgb: 2, 132, 199;
@@ -134,8 +146,8 @@
   --wl-surface-rgb: 255, 255, 255;
   --wl-ink-rgb: 38, 59, 77;        /* neutral-700 #263B4D */
   --wl-ink-strong-rgb: 22, 39, 54; /* neutral-800 #162736 */
-  --wl-ink-soft-rgb: 98, 125, 151; /* neutral-500 #627D97 */
-  --wl-muted-rgb: 141, 164, 190;   /* neutral-400 #8DA4BE */
+  --wl-ink-soft-rgb: 66, 87, 107;    /* neutral-600 #42576B — matches --wl-ink-soft */
+  --wl-muted-rgb: 79, 107, 133;     /* neutral-450 #4F6B85 — matches --wl-muted */
   --wl-line-rgb: 216, 228, 240;
   --wl-border-rgb: 216, 228, 240;
   --wl-on-primary: var(--fg-on-brand);
@@ -144,10 +156,13 @@
   --wl-gold: var(--fg-warning);
   --wl-gold-hover: var(--fg-warning);
   --wl-gold-soft: var(--color-warning-100);
-  --wl-gold-rgb: 234, 179, 8;
+  /* The rgb triples must decode to the SAME colour as the alias above them,
+     or rgba() consumers silently get a different hue than the hex token.
+     These are the 600-weight shades the aliases resolve to. */
+  --wl-gold-rgb: 180, 83, 9;        /* warning-600 #B45309 */
   --wl-emerald: var(--fg-success);
   --wl-emerald-soft: var(--color-success-100);
-  --wl-emerald-rgb: 22, 163, 74;
+  --wl-emerald-rgb: 4, 120, 87;     /* success-600 #047857 */
   --wl-emerald-faint: var(--color-success-100);
   --wl-teal: var(--color-primary-600);
   --wl-teal-soft: var(--color-primary-100);
@@ -219,14 +234,15 @@
   --wl-gradient-app: none;
   --wl-gradient-modal: var(--bg-surface);
   --wl-gradient-secondary: var(--bg-surface);
-  --wl-dir-sign: var(--flip);
+  /* --wl-dir-sign is owned by base.css (see its RTL block). Aliasing it here
+     too created two competing definitions that disagreed about who wins. */
 
   /* ── Platform landing-page tokens → Arctic Frost ── */
   --platform-mist:       var(--bg-app);               /* #F4F8FC arctic canvas      */
   --platform-ink:        var(--fg-heading);            /* #0B1726 dominant navy ink  */
   --platform-ink-soft:   var(--fg-muted);              /* #42576B secondary text     */
   --platform-teal:       var(--brand);                 /* #0C63B8 navy sapphire      */
-  --platform-lime:       var(--accent);                /* #0284C7 glacial ice-cyan   */
+  --platform-lime:       var(--accent);                /* #0369A1 glacial ice-cyan   */
   --platform-aqua:       var(--color-primary-100);     /* #E0EFFE soft primary tint  */
   --platform-border:     var(--border);                /* #D8E4F0 arctic border      */
   --platform-shadow:     var(--shadow-lg);

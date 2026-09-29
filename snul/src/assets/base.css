@@ -462,8 +462,16 @@ input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { box-sh
 *::-webkit-scrollbar-thumb:hover { background: var(--fg-subtle); }
 
 /* ── Page Animation ── */
+/* Opacity-only entrance.
+   An earlier version animated `transform: translateY(4px) -> translateY(0)`
+   with fill-mode `both`. Any non-none transform — including an identity one —
+   turns the element into the containing block for `position: fixed`
+   descendants, which silently broke every modal, dropdown and mobile filter
+   sheet in the app. A CSS animation beats a normal declaration, so the
+   transform could not be cleared from a later rule; the honest fix is not to
+   animate it here at all. */
 .page-shell { animation: pageIn var(--duration-slow) ease both; }
-@keyframes pageIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .page-shell { animation: none; } }
 
 /* ── RTL ── */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { t, locale } from '../../i18n'
 import { useCart } from '../../composables/useCart'
@@ -9,11 +9,26 @@ import BackButton from '../../components/ui/BackButton.vue'
 import AppImage from '../../components/ui/AppImage.vue'
 import { toastService } from '../../infrastructure/feedback/toast.service'
 import { distinctCurrenciesFromAddresses } from '../../utils/country-currency-map'
-import { formatPrice } from '../../utils/format'
 
 const router = useRouter()
-const { items, displayTotal, targetCurrency, count, toDisplayCurrency, quoteNote, clear, getServerLine, setTargetCurrency, unconvertedIds, refreshServerTotal, toRfqItems } = useCart()
-/** Backend totals only — no client-side math. Null until quoted. */
+const {
+  items,
+  displayTotal,
+  targetCurrency,
+  lineCount,
+  quoteNote,
+  clear,
+  getServerLine,
+  resolveCurrencyId,
+  setTargetCurrency,
+  unconvertedIds,
+  totalPending,
+  canSubmitOrder,
+  refreshServerTotal,
+  toRfqItems,
+} = useCart()
+
+/** Integer thousands formatting; null renders as "…" (total not quoted yet). */
 const fmtQuote = (v: number | null) =>
   v == null ? '…' : v.toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-US')
 
@@ -22,8 +37,43 @@ const localized = (en: string, ar: string) => (locale.value === 'ar' ? ar : en)
 const placing = ref(false)
 const submittingRfq = ref(false)
 const error = ref<string | null>(null)
+/** Flips as soon as the order is accepted so the step indicator advances
+ *  before the redirect, instead of being pinned to a hardcoded 1. */
+const orderPlaced = ref(false)
+const isRefreshingRates = ref(false)
+
+const checkoutStep = computed(() => (orderPlaced.value || placing.value ? 2 : 1))
+
+/** Reason the CTAs are blocked, for aria-describedby / title on both of them. */
+const blockedReason = computed(() =>
+  unconvertedIds.value.length
+    ? t('cart.rateUnavailable', { count: unconvertedIds.value.length })
+    : '',
+)
 
 const addressCurrencyOptions = ref<string[]>([])
+
+/** Switching the quote currency re-prices the cart, so any stale error about
+ *  the previous total must go with it. */
+function selectCurrency(code: string) {
+  error.value = null
+  setTargetCurrency(code)
+}
+
+async function handleRefreshRates() {
+  if (isRefreshingRates.value) return
+  isRefreshingRates.value = true
+  error.value = null
+  try {
+    services.exchangeRateService.clearCache()
+    await refreshServerTotal(true)
+    toastService.success(t('cart.liveRateBadge'))
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('common.networkError')
+  } finally {
+    isRefreshingRates.value = false
+  }
+}
 
 onMounted(async () => {
   if (!items.value.length) {
@@ -50,24 +100,39 @@ onMounted(async () => {
 
 async function placeOrder() {
   if (!items.value.length || placing.value) return
+  // Never submit a cart whose total is unknown: `canSubmitOrder` is false while
+  // the quote is pending or any line failed currency conversion.
+  if (!canSubmitOrder.value) {
+    error.value = blockedReason.value || t('common.error')
+    return
+  }
   placing.value = true
   error.value = null
   try {
-    const code = targetCurrency.value || toDisplayCurrency()
-    const currencyId = services.marketplaceService.currencies.value.find((c) => c.code === code)?.id
+    const code = targetCurrency.value.toUpperCase()
+    // useCart already upper-cases both sides of the code→id lookup, so a
+    // lower-case currency code in the DB still resolves. Reusing it here is
+    // what stopped the order payload losing `currencyId`.
+    const currencyId = resolveCurrencyId()
     const res = await commerceService.placeOrder({
       userId: authService.user.value?.id ?? undefined,
       companyId: companyService.myCompany.value?.id ?? undefined,
       currencyId,
       currencyCode: code,
+      // `convertedUnit` is the single rounded figure the cart displays; the old
+      // inline map sent the un-rounded one and disagreed with its own total.
       items: items.value.map((i) => ({ productId: i.product.id, quantity: i.quantity, unitPrice: getServerLine(i.product.id)?.convertedUnit ?? i.product.price })),
     })
     if (res.ok && res.order) {
+      orderPlaced.value = true
       clear()
       void router.replace({ name: 'order-confirmation', params: { orderNumber: res.order.orderNumber } })
     } else if (!res.ok) {
       error.value = res.error
     }
+  } catch (err) {
+    // A synchronous throw (or a rejected promise) must not abort silently.
+    error.value = err instanceof Error ? err.message : t('common.networkError')
   } finally {
     placing.value = false
   }
@@ -79,6 +144,11 @@ async function convertToQuote() {
     void router.push({ name: 'login', query: { redirect: '/checkout' } })
     return
   }
+  if (!canSubmitOrder.value) {
+    error.value = blockedReason.value || t('common.error')
+    return
+  }
+  error.value = null
   await companyService.loadMyCompany()
   const company = companyService.myCompany.value
   if (!company) { toastService.info(t('distributor.pendingApproval')); return }
@@ -92,9 +162,9 @@ async function convertToQuote() {
     const res = await salesService.createRfq({
       companyId: company.id,
       note: finalNote,
-      // toRfqItems() carries the server-converted unit price plus the
-      // per-line currency note. Building items inline here would send the raw
-      // product price and silently drop the conversion.
+      // toRfqItems() carries the same rounded unit price the summary shows plus
+      // the per-line currency note. Building items inline here would send the
+      // raw product price and silently drop the conversion.
       items: toRfqItems(),
     })
     if (res.ok && res.rfq) {
@@ -102,6 +172,8 @@ async function convertToQuote() {
       toastService.success(t('sales.rfqSubmitted', { rfqNumber: res.rfq.rfqNumber }))
       void router.push({ name: 'account-rfq-detail', params: { id: res.rfq.id } })
     } else if (!res.ok) error.value = res.error
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : t('common.networkError')
   } finally { submittingRfq.value = false }
 }
 </script>
@@ -136,12 +208,18 @@ async function convertToQuote() {
     <div class="stepper-wrap">
       <ChainSteps
         :steps="[t('marketplace.quoteCart'), t('commerce.orderSummary'), t('commerce.orderConfirmationTitle')]"
-        :current="1"
+        :current="checkoutStep"
       />
     </div>
 
-    <div v-if="error" class="modal-error" style="margin-bottom: 1.5rem" role="alert">
-      {{ error }}
+    <!-- Localised headline + the server detail, instead of a raw untranslated
+         string. Cleared on every retry / CTA press. -->
+    <div v-if="error" class="modal-error checkout-error" role="alert" aria-live="assertive">
+      <span class="material-symbols-outlined text-[18px]">error</span>
+      <span class="checkout-error__text">
+        <strong>{{ t('common.error') }}</strong>
+        <span>{{ error }}</span>
+      </span>
     </div>
 
     <div class="checkout-layout">
@@ -153,16 +231,27 @@ async function convertToQuote() {
             <span class="mono curr-label">{{ t('checkout.currency') }}:</span>
             <div class="curr-chips">
               <template v-if="addressCurrencyOptions.length>1">
-                <button v-for="code in addressCurrencyOptions" :key="code" type="button" class="curr-chip mono" :class="{ active: code===targetCurrency }" @click="setTargetCurrency(code)">{{ code }}</button>
+                <button v-for="code in addressCurrencyOptions" :key="code" type="button" class="curr-chip mono" :class="{ active: code===targetCurrency }" @click="selectCurrency(code)">{{ code }}</button>
               </template>
               <span v-else class="curr-chip mono active" :title="t('checkout.exchangeLocked')">{{ targetCurrency }}</span>
             </div>
           </div>
           <span class="curr-lock mono">{{ addressCurrencyOptions.length>1 ? t('cart.activeCurrency') : t('checkout.exchangeLocked') }}</span>
         </div>
-        <div v-if="unconvertedIds.length" class="rate-warn mono" role="alert">
-          <span class="material-symbols-outlined text-[14px]">warning</span>
-          <span>{{ t('cart.rateUnavailable', { count: unconvertedIds.length }) }}</span>
+        <!-- An unconverted line has no price, so the total is unknown: a hard
+             error (not a warning) that blocks both CTAs until the buyer retries. -->
+        <div v-if="unconvertedIds.length" id="rate-error" class="rate-error mono" role="alert">
+          <span class="material-symbols-outlined text-[15px]">error</span>
+          <span class="rate-error__text">{{ t('cart.rateUnavailable', { count: unconvertedIds.length }) }}</span>
+          <button
+            type="button"
+            class="rate-retry-btn mono"
+            :disabled="isRefreshingRates"
+            @click="handleRefreshRates"
+          >
+            <span class="material-symbols-outlined text-[15px]" :class="{ 'spin-anim': isRefreshingRates }">refresh</span>
+            <span>{{ t('common.retry') }}</span>
+          </button>
         </div>
 
         <!-- Verified Items Summary Section -->
@@ -170,7 +259,7 @@ async function convertToQuote() {
           <div class="checkout-card__head">
             <h2 id="items-heading" class="card-heading">
               <span>{{ t('commerce.orderSummary') }}</span>
-              <span class="item-count-chip mono">{{ count }} items</span>
+              <span class="item-count-chip mono">{{ t('account.itemsCount', { count: lineCount }) }}</span>
             </h2>
           </div>
 
@@ -191,16 +280,20 @@ async function convertToQuote() {
                 <h3 class="line-item__name">{{ localized(it.product.nameEn, it.product.nameAr) }}</h3>
                 <div class="line-item__sub mono">
                   <span>SKU: {{ it.product.sku }}</span>
-                  <span class="dot">•</span>
-                  <span>{{ it.product.material || 'AISI 420 Stainless' }}</span>
+                  <!-- Never invent a material spec for an order line: an empty
+                       `material` means we do not know it, and this text reaches
+                       a commercial summary and the RFQ. -->
+                  <template v-if="it.product.material">
+                    <span class="dot-sep" aria-hidden="true">•</span>
+                    <span>{{ it.product.material }}</span>
+                  </template>
                 </div>
               </div>
 
               <div class="line-item__pricing">
+                <!-- Same rounded figure the summary total is summed from. -->
                 <div class="mono line-item__calc">
-                  <span>{{ formatPrice(getServerLine(it.product.id)?.ceiledUnit ?? it.product.price, locale) }} {{ (it.product.currencyCode||'USD').toUpperCase() }}</span>
-                  <span v-if="getServerLine(it.product.id)"> → {{ it.quantity }} × {{ getServerLine(it.product.id)!.convertedUnit.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') }} {{ targetCurrency }}</span>
-                  <span v-else> × {{ it.quantity }}</span>
+                  <span>{{ it.quantity }} × {{ fmtQuote(getServerLine(it.product.id)?.convertedUnit ?? null) }} {{ targetCurrency }}</span>
                 </div>
                 <strong class="mono line-item__total">
                   {{ fmtQuote(getServerLine(it.product.id)?.lineTotal ?? null) }} {{ targetCurrency }}
@@ -222,14 +315,18 @@ async function convertToQuote() {
 
           <div class="summary-rows">
             <div class="summary-row">
+              <span class="mono">{{ lineCount }} {{ t('marketplace.products') }}</span>
+              <span class="summary-curr mono">{{ targetCurrency }}</span>
+            </div>
+
+            <div class="summary-row">
               <span class="mono">{{ t('commerce.subtotal') }}</span>
               <strong class="mono">{{ fmtQuote(displayTotal) }} {{ targetCurrency }}</strong>
             </div>
 
-            <div class="summary-row">
-              <span class="mono">{{ t('checkout.duties') }}</span>
-              <span class="mono text-muted text-xs">{{ t('checkout.calcCustoms') }}</span>
-            </div>
+            <!-- The "Duties & Taxes" row used to render a label with no value at
+                 all, so the total silently equalled the subtotal. It is gone;
+                 the note below states plainly that duties are not included. -->
 
             <div class="summary-divider"></div>
 
@@ -238,6 +335,11 @@ async function convertToQuote() {
               <strong class="total-val mono">
                 {{ fmtQuote(displayTotal) }} <span class="total-curr">{{ targetCurrency }}</span>
               </strong>
+            </div>
+
+            <div v-if="totalPending && !unconvertedIds.length" class="total-pending mono" aria-live="polite">
+              <span class="material-symbols-outlined text-[15px] spin-anim">hourglass_top</span>
+              <span>{{ t('common.loading') }}</span>
             </div>
           </div>
 
@@ -250,7 +352,9 @@ async function convertToQuote() {
             <button
               class="btn btn-primary btn-block btn-lg"
               type="button"
-              :disabled="placing"
+              :disabled="placing || !canSubmitOrder"
+              :title="!canSubmitOrder ? blockedReason || undefined : undefined"
+              :aria-describedby="!canSubmitOrder && unconvertedIds.length ? 'rate-error' : undefined"
               @click="placeOrder"
             >
               <span class="material-symbols-outlined text-[18px]">verified</span>
@@ -260,7 +364,9 @@ async function convertToQuote() {
             <button
               class="btn btn-ghost btn-block"
               type="button"
-              :disabled="submittingRfq"
+              :disabled="submittingRfq || !canSubmitOrder"
+              :title="!canSubmitOrder ? blockedReason || undefined : undefined"
+              :aria-describedby="!canSubmitOrder && unconvertedIds.length ? 'rate-error' : undefined"
               @click="convertToQuote"
             >
               <span class="material-symbols-outlined text-[16px]">request_quote</span>
@@ -290,11 +396,13 @@ async function convertToQuote() {
   margin-bottom: var(--space-4);
 }
 
+/* Kept byte-identical to the cart breadcrumb: same scale, spacing, hover and
+   current-crumb treatment on both commerce steps. */
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--step--1);
+  font-size: var(--text-sm);
   color: var(--wl-muted);
 }
 
@@ -343,12 +451,12 @@ async function convertToQuote() {
   height: 7px;
   border-radius: var(--radius-full);
   background: var(--wl-success);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--wl-success-rgb), 0.2);
 }
 
 .checkout-title {
   font-family: var(--wl-font-display);
-  font-size: clamp(1.85rem, 3.2vw, 2.4rem);
+  font-size: clamp(var(--text-3xl), 3.2vw, var(--text-4xl));
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--wl-ink-strong);
@@ -357,7 +465,7 @@ async function convertToQuote() {
 }
 
 .checkout-desc {
-  font-size: var(--step-0);
+  font-size: var(--text-base);
   color: var(--wl-ink-soft);
   margin: 0;
 }
@@ -380,7 +488,7 @@ async function convertToQuote() {
   gap: var(--space-6);
 }
 
-/* Currency Card */
+/* Currency Card — one card radius for the whole marketplace surface. */
 .curr-selector-card {
   display: flex;
   justify-content: space-between;
@@ -388,7 +496,7 @@ async function convertToQuote() {
   padding: var(--space-3) var(--space-4);
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -408,18 +516,80 @@ async function convertToQuote() {
   letter-spacing: 0.06em;
 }
 
-.rate-warn {
+/* An unconverted line leaves the total unknown, so this is a blocking error
+   (danger tokens + retry) rather than an advisory warning. */
+.rate-error {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
   margin-top: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: var(--wl-warning-soft);
-  border: 1px solid var(--wl-warning);
-  color: var(--wl-amber);
+  background: var(--wl-danger-soft);
+  border: 1px solid var(--wl-danger);
+  color: var(--wl-danger);
   border-radius: var(--radius-md);
   font-size: var(--step--1);
   font-weight: 600;
+}
+
+.rate-error__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rate-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--wl-surface);
+  border: 1px solid var(--wl-danger);
+  border-radius: var(--radius-sm);
+  color: var(--wl-danger);
+  font-size: var(--step--1);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rate-retry-btn:hover:not(:disabled) {
+  background: var(--wl-danger);
+  color: var(--wl-on-primary);
+}
+
+.rate-retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rate-retry-btn:focus-visible {
+  outline: 2px solid var(--wl-danger);
+  outline-offset: 2px;
+}
+
+.spin-anim {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Localised headline plus the server detail. */
+.checkout-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.checkout-error__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .curr-chips {
@@ -428,9 +598,13 @@ async function convertToQuote() {
   flex-wrap: wrap;
 }
 
+/* Was ~28px tall. Desktop gets 32px; touch gets the 44px floor. */
 .curr-chip {
-  border: 1px solid var(--wl-border);
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
   padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--wl-border);
   font-size: var(--step--1);
   background: var(--wl-surface-soft);
   color: var(--wl-ink-soft);
@@ -450,12 +624,6 @@ async function convertToQuote() {
   outline-offset: 2px;
 }
 
-.curr-chip--default {
-  border-color: var(--wl-primary-soft);
-  background: var(--wl-primary-soft);
-  font-weight: 800;
-}
-
 .curr-chip.active {
   background: var(--wl-primary);
   color: var(--wl-on-primary);
@@ -472,7 +640,7 @@ async function convertToQuote() {
 .checkout-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-5);
   box-shadow: var(--shadow-card);
 }
@@ -481,23 +649,12 @@ async function convertToQuote() {
   margin-bottom: var(--space-4);
 }
 
-.card-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--step--1);
-  color: var(--wl-primary);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin-bottom: var(--space-1);
-}
-
 .card-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-family: var(--wl-font-display);
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--wl-ink-strong);
@@ -543,10 +700,11 @@ async function convertToQuote() {
   flex-shrink: 0;
 }
 
+/* `fit="contain"` is set on the <AppImage> child, which owns the object-fit.
+   Declaring `cover` here fought it and cropped surgical instruments. */
 .line-item__thumb-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .line-item__info {
@@ -567,6 +725,11 @@ async function convertToQuote() {
   color: var(--wl-muted);
   display: flex;
   gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.dot-sep {
+  opacity: 0.5;
 }
 
 .line-item__pricing {
@@ -594,7 +757,7 @@ async function convertToQuote() {
 .summary-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-5);
   box-shadow: var(--shadow-card);
   position: relative;
@@ -619,18 +782,20 @@ async function convertToQuote() {
 
 .summary-title {
   font-family: var(--wl-font-display);
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--wl-ink-strong);
   margin: 0;
 }
 
+/* Was green here and brand-navy in the cart. The two files render the same
+   commercial summary surface, so they now share one badge treatment. */
 .summary-badge {
   font-size: var(--step--1);
   font-weight: 700;
-  color: var(--wl-success);
-  background: var(--wl-success-soft);
+  color: var(--wl-primary);
+  background: var(--wl-primary-soft);
   border: 1px solid var(--wl-border);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-full);
@@ -655,8 +820,10 @@ async function convertToQuote() {
   margin: var(--space-1) 0;
 }
 
-.summary-row--total {
-  font-size: var(--step-0);
+.summary-curr {
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--wl-muted);
 }
 
 .total-label {
@@ -665,7 +832,7 @@ async function convertToQuote() {
 }
 
 .total-val {
-  font-size: 1.45rem;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: var(--wl-ink-strong);
   font-variant-numeric: tabular-nums;
@@ -673,8 +840,16 @@ async function convertToQuote() {
 }
 
 .total-curr {
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: var(--wl-primary);
+}
+
+.total-pending {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--wl-muted);
 }
 
 .summary-note-box {
@@ -703,6 +878,30 @@ async function convertToQuote() {
   }
   .checkout-summary-col {
     position: static;
+  }
+}
+
+/* Let a line item reflow instead of pushing the page sideways. */
+@media (max-width: 480px) {
+  .line-item {
+    flex-wrap: wrap;
+  }
+  .line-item__info {
+    flex: 1;
+  }
+  .line-item__pricing {
+    width: 100%;
+    text-align: start;
+  }
+}
+
+/* --wl-touch-min floor for touch pointers. */
+@media (pointer: coarse) {
+  .curr-chip {
+    min-height: var(--wl-touch-min);
+  }
+  .rate-retry-btn {
+    min-height: var(--wl-touch-min);
   }
 }
 </style>

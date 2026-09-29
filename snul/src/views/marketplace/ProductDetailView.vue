@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { t, locale } from '../../i18n'
 import { services } from '../../di/container'
@@ -14,6 +14,7 @@ import BackButton from '../../components/ui/BackButton.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import AppImage from '../../components/ui/AppImage.vue'
+import QuantityStepper from '../../components/ui/QuantityStepper.vue'
 import { productMediaUrl, resolveFileUrl, PLACEHOLDER, PLACEHOLDER_PNG, parseVideoSource } from '../../utils/file-url'
 import { formatPrice } from '../../utils/format'
 
@@ -28,6 +29,25 @@ const inspectModalOpen = ref(false)
 const qty = ref(1)
 const related = ref<ProductDto[]>([])
 const activeTab = ref<'specs' | 'videos'>('specs')
+
+// WAI-ARIA roving focus: arrow keys move between tabs, Home/End jump to the
+// ends. Without this the tablist is visually complete but keyboard-inert.
+const TAB_ORDER = ['specs', 'videos'] as const
+function onTabKeydown(event: KeyboardEvent, from: 'specs' | 'videos', to: 'specs' | 'videos') {
+  const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']
+  if (!keys.includes(event.key)) return
+  event.preventDefault()
+
+  let next: 'specs' | 'videos'
+  if (event.key === 'Home') next = 'specs'
+  else if (event.key === 'End') next = 'videos'
+  else next = activeTab.value === from ? to : from
+
+  activeTab.value = next
+  nextTick(() => {
+    document.getElementById(next === 'specs' ? 'pdp-tab-specs' : 'pdp-tab-videos')?.focus()
+  })
+}
 
 /* Providers offering this same SKU (any of their listings). */
 const offeredBy = ref<{ company: CompanyDto; listing: ProductDto }[]>([])
@@ -61,7 +81,7 @@ const inquiryEmail = ref('')
 const inquiryMsg = ref('')
 const inquirySending = ref(false)
 
-const { isSaved, toggleSave, canEditWishlist } = useWishlist()
+const { isSaved, toggleSave } = useWishlist()
 const rfqListIds = ref<string[]>(
   typeof window !== 'undefined'
     ? (JSON.parse(localStorage.getItem('snul-rfq-list') || localStorage.getItem('welco-rfq-list') || '[]') as string[])
@@ -141,6 +161,11 @@ onMounted(() => {
 watch(
   () => route.params.id,
   (newId) => {
+    // Reset per-product UI state so the "added" confirmation and any stale
+    // related/video results never carry over to the next instrument.
+    added.value = false
+    related.value = []
+    videoItems.value = []
     if (newId) void loadProductData(String(newId))
   },
 )
@@ -164,17 +189,6 @@ const currencySymbol = computed(() => {
   return product.value.currencySymbol || product.value.currencyCode || product.value.currency || '$'
 })
 
-const onQtyChange = () => {
-  if (!product.value) return
-  const min = product.value.minOrderQty || 1
-  const max = product.value.stock > 0 ? product.value.stock : 9999
-  if (typeof qty.value !== 'number' || isNaN(qty.value) || qty.value < min) {
-    qty.value = min
-  } else if (qty.value > max) {
-    qty.value = max
-  }
-}
-
 const stockLabel = computed(() => {
   if (!product.value) return ''
   if (product.value.stock === 0) return t('marketplace.outOfStock')
@@ -189,14 +203,17 @@ const stockStatusClass = computed(() => {
   return 'stock-badge--in'
 })
 
+const added = ref(false)
+
 const handleAdd = () => {
   if (!product.value) return
   const min = product.value.minOrderQty || 1
   if (qty.value < min) qty.value = min
   add(product.value, qty.value)
-  toastService.success(
-    t('catalog.quoteSuccess', { product: localized(product.value.nameEn, product.value.nameAr) }),
-  )
+  added.value = true
+  // The previous copy claimed a quotation request had been *submitted*, but
+  // this only ever mutates the local cart — nothing is sent to a server.
+  toastService.success(t('pdp.addedToCart'))
 }
 
 const handleAddAndGoCart = () => {
@@ -431,8 +448,9 @@ const resolvedDescription = computed(() => {
     <DataState
       v-else-if="!product"
       :empty="true"
-      empty-title="Instrument not found"
-      empty-description="The requested surgical instrument is no longer available or was not found."
+      :empty-title="t('pdp.notFoundTitle')"
+      :empty-description="t('pdp.notFoundDesc')"
+      :action-text="t('pdp.browseMarketplace')"
       @action="router.push({ name: 'marketplace' })"
     />
 
@@ -445,15 +463,14 @@ const resolvedDescription = computed(() => {
           <div class="pdp-badges-top">
             <span class="pdp-sku-pill mono">{{ product.sku }}</span>
             <div class="pdp-status-pills">
-              <span v-if="product.isNew" class="pdp-new-pill mono">NEW</span>
-              <span v-else-if="product.isFeatured" class="pdp-featured-pill mono">FEATURED</span>
-              <span v-if="product.isActive" class="pdp-ce-pill mono">CE MARKED</span>
+              <span v-if="product.isNew" class="pdp-new-pill">{{ t('pdp.badgeNew') }}</span>
+              <span v-else-if="product.isFeatured" class="pdp-featured-pill">{{ t('pdp.badgeFeatured') }}</span>
+              <span v-if="product.isActive" class="pdp-ce-pill">{{ t('pdp.badgeCeMarked') }}</span>
             </div>
             <button
               type="button"
               class="pdp-wishlist-quick-btn"
               :class="{ 'is-saved': isSaved(product.id) }"
-              :disabled="!canEditWishlist"
               :aria-label="isSaved(product.id) ? t('marketplace.removeFromWishlist') : t('marketplace.wishlistTitle')"
               @click="toggleSave(product.id)"
             >
@@ -552,22 +569,22 @@ const resolvedDescription = computed(() => {
           <!-- Key Technical Specs Strip -->
           <div class="pdp-specs-strip">
             <div v-if="product.material" class="spec-chip">
-              <span class="spec-chip__k mono">{{ t('pdp.specMaterial') || 'Material' }}</span>
+              <span class="spec-chip__k mono">{{ t('pdp.specMaterial') }}</span>
               <strong class="spec-chip__v">{{ product.material }}</strong>
             </div>
             <div v-if="product.lengthCm" class="spec-chip">
-              <span class="spec-chip__k mono">{{ t('pdp.specLength') || 'Length' }}</span>
+              <span class="spec-chip__k mono">{{ t('pdp.specLength') }}</span>
               <strong class="spec-chip__v">{{ product.lengthCm }} cm</strong>
             </div>
             <div class="spec-chip">
-              <span class="spec-chip__k mono">{{ locale === 'ar' ? 'المخزون' : 'Inventory' }}</span>
+              <span class="spec-chip__k mono">{{ t('pdp.specInventory') }}</span>
               <strong class="spec-chip__v">
                 {{ product.stock > 0 ? t('catalog.inStock') : t('catalog.madeToOrder') }}
                 <span v-if="product.stock > 0" class="mono text-muted"> ({{ product.stock }})</span>
               </strong>
             </div>
             <div v-if="product.unit || product.unitAr" class="spec-chip">
-              <span class="spec-chip__k mono">{{ locale === 'ar' ? 'الوحدة' : 'Unit' }}</span>
+              <span class="spec-chip__k mono">{{ t('pdp.specUnit') }}</span>
               <strong class="spec-chip__v">{{ locale === 'ar' ? (product.unitAr || product.unit) : (product.unit || product.unitAr) }}</strong>
             </div>
           </div>
@@ -583,13 +600,34 @@ const resolvedDescription = computed(() => {
                 <span class="pdp-unit-caption mono">
                   / {{ locale === 'ar' ? (product.unitAr || product.unit || 'قطعة') : (product.unit || 'pcs') }}
                 </span>
+                <span
+                  v-if="product.originalPrice && product.originalPrice > product.price"
+                  class="pdp-price-original mono"
+                >
+                  {{ formatPrice(product.originalPrice, locale) }} {{ currencySymbol }}
+                </span>
               </div>
 
-              <!-- Live Inventory Badge -->
-              <span class="stock-badge" :class="stockStatusClass">
-                <span class="live-dot"></span>
-                <span>{{ stockLabel }}</span>
-              </span>
+              <div class="pdp-price-aside">
+                <!-- Live Inventory Badge -->
+                <span class="stock-badge" :class="stockStatusClass">
+                  <span class="live-dot"></span>
+                  <span>{{ stockLabel }}</span>
+                </span>
+
+                <!-- Rating is fetched on the product record but was never shown -->
+                <span
+                  v-if="product.rating"
+                  class="pdp-rating"
+                  :aria-label="`${t('pdp.ratingLabel')}: ${product.rating}`"
+                >
+                  <span class="material-symbols-outlined pdp-rating__star" aria-hidden="true">star</span>
+                  <span class="mono">{{ product.rating.toFixed(1) }}</span>
+                  <span v-if="product.reviewCount" class="pdp-rating__count mono">
+                    ({{ t('pdp.reviewsCount', { count: product.reviewCount }) }})
+                  </span>
+                </span>
+              </div>
             </div>
 
             <!-- Commercial Terms Bar -->
@@ -612,46 +650,24 @@ const resolvedDescription = computed(() => {
           <div class="pdp-order-actions">
             <!-- Stepper -->
             <div class="pdp-qty-wrapper">
-              <label class="pdp-qty-label mono">Quantity</label>
-              <div class="pdp-qty-stepper">
-                <button
-                  type="button"
-                  class="stepper-btn"
-                  :disabled="qty <= (product.minOrderQty || 1)"
-                  aria-label="Decrease quantity"
-                  @click="qty = Math.max(product.minOrderQty || 1, qty - 1)"
-                >
-                  <span class="material-symbols-outlined">remove</span>
-                </button>
-                <input
-                  v-model.number="qty"
-                  type="number"
-                  :min="product.minOrderQty || 1"
-                  :max="product.stock > 0 ? product.stock : 9999"
-                  class="stepper-val mono"
-                  aria-label="Quantity"
-                  @change="onQtyChange"
-                />
-                <button
-                  type="button"
-                  class="stepper-btn"
-                  :disabled="product.stock > 0 && qty >= product.stock"
-                  aria-label="Increase quantity"
-                  @click="qty++"
-                >
-                  <span class="material-symbols-outlined">add</span>
-                </button>
-              </div>
+              <label class="pdp-qty-label mono">{{ t('common.quantity') }}</label>
+              <QuantityStepper
+                v-model="qty"
+                size="lg"
+                editable
+                :min="product.minOrderQty || 1"
+                :max="product.stock > 0 ? product.stock : 9999"
+              />
             </div>
 
             <!-- Primary CTAs -->
             <div class="pdp-cta-group">
               <button class="btn-primary-cta btn-press" type="button" @click="handleAdd">
                 <span class="material-symbols-outlined text-[20px]">shopping_cart</span>
-                <span>{{ t('marketplace.addToQuote') }}</span>
+                <span>{{ added ? t('pdp.addedToCart') : t('marketplace.addToQuote') }}</span>
               </button>
               <button class="btn-secondary-quote" type="button" @click="handleAddAndGoCart">
-                <span>Direct Quotation</span>
+                <span>{{ t('pdp.directQuotation') }}</span>
               </button>
             </div>
           </div>
@@ -685,7 +701,6 @@ const resolvedDescription = computed(() => {
               type="button"
               class="tert-link tert-link--fav mono"
               :class="{ 'is-active': isSaved(product.id) }"
-              :disabled="!canEditWishlist"
               @click="toggleSave(product.id)"
             >
               <span class="material-symbols-outlined text-[16px]">
@@ -705,13 +720,18 @@ const resolvedDescription = computed(() => {
       <!-- ── Technical Tabs Section ── -->
       <div v-reveal class="pdp-tabs-container">
         <div class="pdp-tabs">
-          <div class="pdp-tab-headers mono" role="tablist">
+          <div class="pdp-tab-headers mono" role="tablist" :aria-label="t('pdp.tabSpecs')">
             <button
               type="button"
               class="pdp-tab-btn"
               :class="{ 'is-active': activeTab === 'specs' }"
+              id="pdp-tab-specs"
               role="tab"
+              :aria-selected="activeTab === 'specs'"
+              aria-controls="pdp-panel-specs"
+              :tabindex="activeTab === 'specs' ? 0 : -1"
               @click="activeTab = 'specs'"
+              @keydown="onTabKeydown($event, 'specs', 'videos')"
             >
               <span class="material-symbols-outlined text-[17px]">description</span>
               <span>{{ t('pdp.tabSpecs') }}</span>
@@ -721,8 +741,13 @@ const resolvedDescription = computed(() => {
               type="button"
               class="pdp-tab-btn"
               :class="{ 'is-active': activeTab === 'videos' }"
+              id="pdp-tab-videos"
               role="tab"
+              :aria-selected="activeTab === 'videos'"
+              aria-controls="pdp-panel-videos"
+              :tabindex="activeTab === 'videos' ? 0 : -1"
               @click="activeTab = 'videos'"
+              @keydown="onTabKeydown($event, 'specs', 'videos')"
             >
               <span class="material-symbols-outlined text-[17px]">play_circle</span>
               <span>{{ t('pdp.tabVideos') }}</span>
@@ -731,7 +756,7 @@ const resolvedDescription = computed(() => {
           </div>
 
           <!-- Tab Content: Specs -->
-          <div v-if="activeTab === 'specs'" class="pdp-tab-content">
+          <div v-if="activeTab === 'specs'" id="pdp-panel-specs" class="pdp-tab-content" role="tabpanel" aria-labelledby="pdp-tab-specs" tabindex="0">
             <div v-if="resolvedDescription" class="pdp-desc-box">
               <p class="desc-text" dir="auto">
                 {{ resolvedDescription }}
@@ -778,7 +803,7 @@ const resolvedDescription = computed(() => {
           </div>
 
           <!-- Tab Content: Videos -->
-          <div v-else-if="activeTab === 'videos'" class="pdp-tab-content">
+          <div v-else-if="activeTab === 'videos'" id="pdp-panel-videos" class="pdp-tab-content" role="tabpanel" aria-labelledby="pdp-tab-videos" tabindex="0">
             <div v-if="videoItems.length" class="video-grid">
               <div
                 v-for="(v, i) in videoItems"
@@ -921,7 +946,13 @@ const resolvedDescription = computed(() => {
 
             <div class="rel-body">
               <span class="rel-cat mono">{{ localized(p.categoryNameEn, p.categoryNameAr) }}</span>
-              <h4 class="rel-name" dir="auto">{{ localized(p.nameEn, p.nameAr) }}</h4>
+              <h4 class="rel-name" dir="auto">
+                <router-link
+                  class="rel-name__link"
+                  :to="{ name: 'marketplace-product', params: { id: p.id } }"
+                  @click.stop
+                >{{ localized(p.nameEn, p.nameAr) }}</router-link>
+              </h4>
               <div class="rel-name-alt mono" dir="auto">{{ locale === 'ar' ? p.nameEn : p.nameAr }}</div>
               <div v-if="p.lengthCm || p.material" class="rel-specs-mono mono">
                 {{ p.lengthCm ? `${p.lengthCm} cm` : '' }}{{ p.lengthCm && p.material ? ' · ' : '' }}{{ p.material || '' }}
@@ -1458,6 +1489,40 @@ const resolvedDescription = computed(() => {
 .price-figure-wrap {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* Strike-through original price, only rendered when it is a real discount */
+.pdp-price-original {
+  font-size: var(--text-md);
+  color: var(--wl-muted);
+  text-decoration: line-through;
+}
+
+.pdp-price-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.pdp-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--wl-ink-soft);
+}
+
+.pdp-rating__star {
+  font-size: 16px;
+  color: var(--color-warning-500);
+  font-variation-settings: 'FILL' 1;
+}
+
+.pdp-rating__count {
+  color: var(--wl-muted);
 }
 
 .pdp-price-figure {
@@ -1555,76 +1620,6 @@ const resolvedDescription = computed(() => {
   text-transform: uppercase;
 }
 
-.pdp-qty-stepper {
-  display: inline-flex;
-  align-items: center;
-  height: 48px;
-  background: var(--wl-surface);
-  border: 1.5px solid var(--wl-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.pdp-qty-stepper:focus-within,
-.pdp-qty-stepper:hover {
-  border-color: var(--wl-primary);
-  box-shadow: var(--wl-focus-ring);
-}
-
-.stepper-btn {
-  width: 44px;
-  height: 100%;
-  border: none;
-  background: var(--wl-surface-soft);
-  color: var(--wl-ink-strong);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  flex-shrink: 0;
-}
-
-.stepper-btn:hover:not(:disabled) {
-  background: var(--wl-primary-soft);
-  color: var(--wl-primary);
-}
-
-.stepper-btn:focus-visible {
-  outline: 2px solid var(--wl-primary);
-  outline-offset: -2px;
-}
-
-.stepper-btn:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.stepper-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.stepper-val {
-  width: 64px;
-  height: 100%;
-  border: none;
-  border-inline-start: 1px solid var(--wl-border);
-  border-inline-end: 1px solid var(--wl-border);
-  background: var(--wl-surface);
-  text-align: center;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: var(--wl-ink-strong);
-  outline: none;
-  -moz-appearance: textfield;
-}
-
-.stepper-val::-webkit-inner-spin-button,
-.stepper-val::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
 
 .pdp-cta-group {
   display: flex;
@@ -2300,6 +2295,19 @@ const resolvedDescription = computed(() => {
   overflow-wrap: anywhere;
 }
 
+/* Real anchor so the card is reachable by keyboard and exposed as a link,
+   instead of a click-only <article>. */
+.rel-name__link {
+  color: inherit;
+  text-decoration: none;
+  outline-offset: 3px;
+}
+.rel-name__link:hover { text-decoration: underline; }
+.rel-name__link:focus-visible {
+  outline: 2px solid var(--border-focus);
+  border-radius: 3px;
+}
+
 .rel-name-alt {
   font-size: var(--step--1);
   color: var(--wl-muted);
@@ -2432,12 +2440,8 @@ const resolvedDescription = computed(() => {
     flex-direction: column;
     align-items: stretch;
   }
-  .pdp-qty-stepper {
+  .pdp-qty-wrapper :deep(.qty--lg) {
     width: 100%;
-    justify-content: space-between;
-  }
-  .stepper-btn {
-    flex: 1;
   }
   .pdp-cta-group {
     flex-direction: column;

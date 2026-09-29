@@ -70,7 +70,7 @@ const userRoleLabel = computed(() =>
 )
 const { count: cartCount } = useCart()
 const wishlistCount = computed(() => wishlistService.count.value)
-const { logoUrl: headerLogoUrl, altText: headerLogoAlt } = useSiteLogo()
+const { logoUrl: headerLogoUrl } = useSiteLogo()
 
 const handleLogout = async () => { userMenuOpen.value = false; mobileOpen.value = false; mobileSearchOpen.value = false; await authService.logout() }
 const closeMobile  = () => { mobileOpen.value = false; mobileSearchOpen.value = false }
@@ -124,7 +124,7 @@ watch(isAuthed, (v) => {
         </button>
 
         <router-link :to="isStaff && isAuthed ? '/admin' : (isProvider && isAuthed ? '/provider' : '/')" class="logo" @click="closeMobile" :aria-label="t('nav.home')">
-          <img v-if="headerLogoUrl" :src="headerLogoUrl" :alt="headerLogoAlt" class="logo__img" width="120" height="28" loading="eager" />
+          <img v-if="headerLogoUrl" :src="headerLogoUrl" alt="" class="logo__img" width="120" height="28" loading="eager" />
           <span class="logo__word">SNUL</span>
         </router-link>
       </div>
@@ -551,16 +551,18 @@ watch(isAuthed, (v) => {
 .btn-ghost { background: var(--wl-surface); color: var(--wl-ink-strong); border-color: var(--wl-border); }
 .btn-ghost:hover { background: var(--wl-surface-soft); }
 .btn-sm { padding: 6px 12px; font-size: 12.5px; }
+/* --accent (#0284C7) only reaches 4.09:1 against white text, which fails
+   WCAG AA. Step down the ramp to --accent-hover (#0369A1, 5.93:1). */
 .header__auth-desktop .btn-primary {
-  background: var(--accent);
+  background: var(--accent-hover);
   color: #ffffff;
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
   font-weight: 700;
 }
 .header__auth-desktop .btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--color-accent-800);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 4px 14px rgba(3, 105, 161, 0.4);
 }
 .header__auth-desktop .btn-ghost {
   background: rgba(255, 255, 255, 0.12);

@@ -42,7 +42,7 @@ const priorityLabel = computed(
  *  metadata is prefixed into the body rather than silently discarded. */
 const composedMessage = computed(() => {
   const body = message.value.trim()
-  return `[${categoryLabel.value}] Â· [${priorityLabel.value}]\n${body}`
+  return `[${categoryLabel.value}] · [${priorityLabel.value}]\n${body}`
 })
 
 const hasContactDetails = computed(
@@ -116,13 +116,13 @@ onMounted(async () => {
       <!-- Header -->
       <header class="view-header">
         <div>
-          <span class="mono eyebrow">{{ t('provider.dashboard') }} Â· {{ t('provider.support') }}</span>
+          <span class="mono eyebrow">{{ t('provider.dashboard') }} · {{ t('provider.support') }}</span>
           <h1 class="view-title">{{ t('provider.contactAdmin') }}</h1>
           <p class="view-desc">{{ t('provider.supportDesc') }}</p>
         </div>
       </header>
 
-      <!-- Channels Grid â€” values come from the SupportContact record, which an
+      <!-- Channels Grid — values come from the SupportContact record, which an
            admin maintains via PUT /api/v1/support/contact. Nothing is invented
            here; if no record exists yet the cards are simply not shown. -->
       <div v-if="hasContactDetails" class="channels-grid">
@@ -183,7 +183,7 @@ onMounted(async () => {
         <div class="notice-content">
           <strong class="notice-title mono">Full Central Admin Oversight & Provider Management</strong>
           <p class="notice-desc">
-            SNUL Central Administration maintains 360Â° operational access across the network. If your team encounters any logistics bottlenecks, client disputes, or quote calculation constraints, SNUL Admins can manage quotes on your behalf, update shipment states, track all your client interactions, and directly resolve procurement discrepancies.
+            SNUL Central Administration maintains 360° operational access across the network. If your team encounters any logistics bottlenecks, client disputes, or quote calculation constraints, SNUL Admins can manage quotes on your behalf, update shipment states, track all your client interactions, and directly resolve procurement discrepancies.
           </p>
         </div>
       </div>
@@ -233,7 +233,7 @@ onMounted(async () => {
               required
             ></textarea>
             <p class="form-hint mono">
-              Sent as: [{{ categoryLabel }}] Â· [{{ priorityLabel }}] + your message
+              Sent as: [{{ categoryLabel }}] · [{{ priorityLabel }}] + your message
             </p>
           </div>
 
@@ -251,7 +251,7 @@ onMounted(async () => {
         <div class="ticket-card-head">
           <h2 class="ticket-heading">My support tickets</h2>
           <p class="ticket-sub">
-            {{ openTickets.length }} open Â· {{ tickets.length }} total
+            {{ openTickets.length }} open · {{ tickets.length }} total
           </p>
         </div>
 

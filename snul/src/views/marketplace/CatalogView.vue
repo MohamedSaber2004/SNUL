@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { t, locale } from '../../i18n'
+import { services } from '../../di/container'
 import { useMarketplace } from '../../composables/useMarketplace'
 import { useCart } from '../../composables/useCart'
 import { useWishlist } from '../../composables/useWishlist'
@@ -51,6 +52,52 @@ const handleWishlist = async (id: string) => {
 }
 
 const showMobileFilters = ref(false)
+const filterSheet = ref<HTMLElement | null>(null)
+const closeFiltersBtn = ref<HTMLButtonElement | null>(null)
+
+const closeMobileFilters = () => {
+  showMobileFilters.value = false
+}
+
+/* Dialog semantics: Escape closes, Tab is trapped inside the sheet, and the
+   page behind is scroll-locked while the sheet owns the viewport. */
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+const onFilterKeydown = (e: KeyboardEvent) => {
+  if (!showMobileFilters.value) return
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    closeMobileFilters()
+    return
+  }
+  if (e.key !== 'Tab' || !filterSheet.value) return
+  const nodes = Array.from(filterSheet.value.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (n) => n.offsetParent !== null,
+  )
+  if (!nodes.length) return
+  const first = nodes[0]!
+  const last = nodes[nodes.length - 1]!
+  const active = document.activeElement as HTMLElement | null
+  if (e.shiftKey && (active === first || !filterSheet.value.contains(active))) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+if (typeof window !== 'undefined') window.addEventListener('keydown', onFilterKeydown)
+onUnmounted(() => {
+  if (typeof window !== 'undefined') window.removeEventListener('keydown', onFilterKeydown)
+  document.body.style.overflow = ''
+})
+
+watch(showMobileFilters, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+  if (open) void nextTick(() => closeFiltersBtn.value?.focus())
+})
 
 watch(
   () => route.query.search,
@@ -58,6 +105,10 @@ watch(
     if (v !== undefined) search.value = v ? String(v) : ''
   },
 )
+
+const openProduct = (id: string) => {
+  void router.push({ name: 'marketplace-product', params: { id } })
+}
 
 const handleAdd = (id: string) => {
   const p = products.value.find((x) => x.id === id)
@@ -72,8 +123,49 @@ const localizedCat = (c: { nameEn: string; nameAr: string }) =>
   locale.value === 'ar' ? c.nameAr : c.nameEn
 
 const hasFilters = computed(() =>
-  Boolean(categoryId.value || search.value || sku.value || sortBy.value || inStockOnly.value || material.value || lengthMin.value != null || lengthMax.value != null || priceMin.value != null || priceMax.value != null || availability.value !== 'all'),
+  Boolean(categoryId.value || search.value || sku.value || inStockOnly.value || material.value || lengthMin.value != null || lengthMax.value != null || priceMin.value != null || priceMax.value != null || availability.value !== 'all'),
 )
+
+/* Service owns the real page size — never hardcode it in the view. */
+const pageSize = computed(() => services.marketplaceService.pageSize.value)
+
+/* Currency comes from the data; only a last-resort default is literal. */
+const currencySymbol = computed(() => {
+  for (const p of products.value) {
+    const sym = p.currencySymbol || p.currencyCode || p.currency
+    if (sym) return sym
+  }
+  return '$'
+})
+
+const priceChipLabel = computed(() => {
+  const sym = currencySymbol.value
+  if (priceMin.value != null && priceMax.value != null) return `${sym}${priceMin.value} – ${sym}${priceMax.value}`
+  if (priceMin.value != null) return `≥ ${sym}${priceMin.value}`
+  return `≤ ${sym}${priceMax.value}`
+})
+
+const lengthChipLabel = computed(() => {
+  if (lengthMin.value != null && lengthMax.value != null) return `${lengthMin.value} – ${lengthMax.value} cm`
+  if (lengthMin.value != null) return `≥ ${lengthMin.value} cm`
+  return `≤ ${lengthMax.value} cm`
+})
+
+const originLabel = (p: { manufacturerEn: string; isActive: boolean }) => {
+  const mfr = p.manufacturerEn || t('catalog.fallbackMfr')
+  return p.isActive ? `${mfr} · ${t('catalog.ceMarked')}` : mfr
+}
+
+const maxPage = computed(() => Math.max(1, totalPages.value))
+
+/* The page lives on a service singleton, so a narrower result set can leave it
+   past the end — clamp after every completed load. */
+watch([loading, totalPages], () => {
+  if (loading.value) return
+  if (page.value > maxPage.value) goPage(maxPage.value)
+})
+
+const handlePageChange = (p: number) => goPage(Math.min(Math.max(1, p), maxPage.value))
 
 const activeCategoryName = computed(() => {
   if (!categoryId.value) return t('marketplace.allCategories')
@@ -126,10 +218,10 @@ const filteredSidebarCategories = computed(() => {
     </div>
 
     <div v-if="categories.length" class="category-pills-bar">
-      <button class="cat-pill" :class="{ 'is-active': !categoryId }" @click="categoryId = null">
+      <button type="button" class="cat-pill" :class="{ 'is-active': !categoryId }" @click="categoryId = null">
         {{ t('marketplace.allCategories') }}
       </button>
-      <button v-for="c in categories" :key="c.id" class="cat-pill" :class="{ 'is-active': categoryId === c.id }" @click="categoryId = categoryId === c.id ? null : c.id">
+      <button v-for="c in categories" :key="c.id" type="button" class="cat-pill" :class="{ 'is-active': categoryId === c.id }" @click="categoryId = categoryId === c.id ? null : c.id">
         {{ localizedCat(c) }}<span class="pill-badge mono">{{ c.productCount ?? '' }}</span>
       </button>
     </div>
@@ -146,14 +238,14 @@ const filteredSidebarCategories = computed(() => {
       <div class="toolbar-controls">
         <div class="sort-select-wrapper">
           <span class="material-symbols-outlined sort-icon">sort</span>
-          <select v-model="sortBy" class="sort-select mono">
+          <select v-model="sortBy" class="sort-select mono" :aria-label="t('common.sortBy')">
             <option :value="undefined">{{ t('catalog.sortFeatured') }}</option>
             <option value="newest">{{ t('marketplace.sortNewest') }}</option>
             <option value="price-asc">{{ t('marketplace.sortPriceAsc') }}</option>
             <option value="price-desc">{{ t('marketplace.sortPriceDesc') }}</option>
           </select>
         </div>
-        <button type="button" class="mobile-filter-toggle md:hidden" :class="{ 'has-active': hasFilters }" @click="showMobileFilters = !showMobileFilters">
+        <button type="button" class="mobile-filter-toggle lg:hidden" :class="{ 'has-active': hasFilters }" :aria-expanded="showMobileFilters" aria-controls="catalog-filter-sheet" @click="showMobileFilters = !showMobileFilters">
           <span class="material-symbols-outlined text-[18px]">filter_list</span>
           <span>{{ t('catalog.filters') }}</span>
           <span v-if="hasFilters" class="filter-dot" aria-hidden="true"></span>
@@ -176,7 +268,7 @@ const filteredSidebarCategories = computed(() => {
       </button>
 
       <button v-if="sku" type="button" class="filter-chip mono" @click="sku = ''">
-        <span>SKU: {{ sku }}</span>
+        <span>{{ t('marketplace.sku') }}: {{ sku }}</span>
         <span class="material-symbols-outlined text-[13px]">close</span>
       </button>
 
@@ -191,12 +283,12 @@ const filteredSidebarCategories = computed(() => {
       </button>
 
       <button v-if="priceMin != null || priceMax != null" type="button" class="filter-chip mono" @click="priceMin = null; priceMax = null">
-        <span>${{ priceMin ?? 0 }} – ${{ priceMax ?? '∞' }}</span>
+        <span>{{ priceChipLabel }}</span>
         <span class="material-symbols-outlined text-[13px]">close</span>
       </button>
 
       <button v-if="lengthMin != null || lengthMax != null" type="button" class="filter-chip mono" @click="lengthMin = null; lengthMax = null">
-        <span>{{ lengthMin ?? 0 }} – {{ lengthMax ?? '∞' }} cm</span>
+        <span>{{ lengthChipLabel }}</span>
         <span class="material-symbols-outlined text-[13px]">close</span>
       </button>
 
@@ -206,10 +298,19 @@ const filteredSidebarCategories = computed(() => {
     </div>
 
     <div class="catalog-grid-layout">
-      <aside class="filter-sidebar" :class="{ 'is-mobile-open': showMobileFilters }">
-        <div class="filter-sidebar__header md:hidden">
+      <div v-if="showMobileFilters" class="filter-backdrop lg:hidden" aria-hidden="true" @click="closeMobileFilters"></div>
+      <aside
+        id="catalog-filter-sheet"
+        ref="filterSheet"
+        class="filter-sidebar"
+        :class="{ 'is-mobile-open': showMobileFilters }"
+        :role="showMobileFilters ? 'dialog' : undefined"
+        :aria-modal="showMobileFilters ? 'true' : undefined"
+        :aria-label="showMobileFilters ? t('catalog.filters') : undefined"
+      >
+        <div class="filter-sidebar__header lg:hidden">
           <span class="mono font-bold">{{ t('catalog.filterInstruments') }}</span>
-          <button type="button" class="close-filters-btn" @click="showMobileFilters = false"><span class="material-symbols-outlined">close</span></button>
+          <button ref="closeFiltersBtn" type="button" class="close-filters-btn" :aria-label="t('common.close')" @click="closeMobileFilters"><span class="material-symbols-outlined">close</span></button>
         </div>
 
         <div class="filter-section">
@@ -248,7 +349,7 @@ const filteredSidebarCategories = computed(() => {
         </div>
 
         <div class="filter-section">
-          <div class="filter-heading mono">SKU</div>
+          <div class="filter-heading mono">{{ t('marketplace.sku') }}</div>
           <input v-model="sku" type="text" :placeholder="t('catalog.skuPlaceholder')" class="search-input mono" />
           <div class="mono" style="font-size:10px; color:var(--wl-muted); margin-top:6px">{{ t('catalog.skuHelp') }}</div>
         </div>
@@ -303,7 +404,7 @@ const filteredSidebarCategories = computed(() => {
         </button>
       </aside>
 
-      <main class="catalog-results">
+      <section class="catalog-results" :aria-label="t('marketplace.title')">
         <SkeletonLoader v-if="loading" type="catalog-grid" :count="6" />
         <div v-else-if="error" style="text-align:center;padding:2rem">
           <p style="color:var(--wl-danger)">{{ error }}</p>
@@ -317,15 +418,15 @@ const filteredSidebarCategories = computed(() => {
         </div>
         <template v-else>
           <div class="results-meta-bar mono">
-            <span>{{ activeCategoryName }} · {{ totalCount }} {{ t('catalog.showing', { count: String(products.length), total: String(totalCount), page: String(page), totalPages: String(totalPages) } as never).split('·')[0] }}</span>
+            <span class="results-meta-bar__label">{{ activeCategoryName }} · {{ totalCount }} {{ t('catalog.showing', { count: String(products.length), total: String(totalCount), page: String(page), totalPages: String(totalPages) } as never).split('·')[0] }}</span>
 
-            <div class="view-mode-toggle" role="group" aria-label="View Mode">
+            <div class="view-mode-toggle" role="group" aria-label="{{ t('common.viewMode') }}">
               <button
                 type="button"
                 class="view-toggle-btn"
                 :class="{ 'is-active': viewMode === 'grid' }"
-                title="Grid View"
-                aria-label="Grid View"
+                title="{{ t('common.viewGrid') }}"
+                aria-label="{{ t('common.viewGrid') }}"
                 @click="viewMode = 'grid'"
               >
                 <span class="material-symbols-outlined text-[18px]">grid_view</span>
@@ -334,8 +435,8 @@ const filteredSidebarCategories = computed(() => {
                 type="button"
                 class="view-toggle-btn"
                 :class="{ 'is-active': viewMode === 'list' }"
-                title="List View"
-                aria-label="List View"
+                title="{{ t('common.viewList') }}"
+                aria-label="{{ t('common.viewList') }}"
                 @click="viewMode = 'list'"
               >
                 <span class="material-symbols-outlined text-[18px]">view_list</span>
@@ -345,7 +446,7 @@ const filteredSidebarCategories = computed(() => {
 
           <!-- Grid Display -->
           <div v-if="viewMode === 'grid'" class="products-grid">
-            <article v-for="p in products" :key="p.id" class="card catalog-card" @click="router.push({ name: 'marketplace-product', params: { id: p.id } })">
+            <article v-for="p in products" :key="p.id" class="catalog-card" @click="openProduct(p.id)">
               <div class="catalog-card__media" :style="{ background: productMediaUrl(p.imageName, p.imageGradient).background }">
                 <AppImage
                   :src="p.imageName"
@@ -365,18 +466,20 @@ const filteredSidebarCategories = computed(() => {
               </div>
               <div class="catalog-card__body">
                 <div class="catalog-card__category mono" dir="auto">{{ localized(p.categoryNameEn || '', p.categoryNameAr || '') }}</div>
-                <h3 class="catalog-card__title" dir="auto">{{ localized(p.nameEn, p.nameAr) }}</h3>
+                <h2 class="catalog-card__title" dir="auto">
+                  <router-link class="catalog-card__title-link" :to="{ name: 'marketplace-product', params: { id: p.id } }" @click.stop>{{ localized(p.nameEn, p.nameAr) }}</router-link>
+                </h2>
                 <div class="catalog-card__title-alt mono" dir="auto">{{ locale === 'ar' ? p.nameEn : p.nameAr }}</div>
-                <div class="catalog-card__origin mono">{{ p.manufacturerEn || t('catalog.fallbackMfr') }} · {{ p.isActive ? t('catalog.ceMarked') : '' }}<span v-if="p.lengthCm" class="length-chip mono"><span class="length-dot" aria-hidden="true"></span>{{ p.lengthCm }} cm</span></div>
+                <div class="catalog-card__origin mono">{{ originLabel(p) }}<span v-if="p.lengthCm" class="length-chip mono"><span class="length-dot" aria-hidden="true"></span>{{ p.lengthCm }} cm</span></div>
                 <div class="catalog-card__foot">
                   <div class="price-col">
                     <strong class="catalog-card__price mono">{{ formatPrice(p.price, locale) }} <span class="currency-tag">{{ p.currencySymbol || p.currencyCode || p.currency || '$' }}</span></strong>
                     <span v-if="p.unit" class="unit-tag mono">/ {{ p.unit }}</span>
                   </div>
-                  <span v-if="p.rating" class="rating-tag mono">★ {{ p.rating.toFixed(1) }}</span>
+                  <span v-if="p.rating" class="rating-tag mono">â˜… {{ p.rating.toFixed(1) }}</span>
                 </div>
                 <div class="catalog-card__actions">
-                  <button class="card-action-btn card-action-btn--view" type="button" @click.stop="router.push({ name: 'marketplace-product', params: { id: p.id } })">{{ t('marketplace.viewDetails') }}</button>
+                  <button class="card-action-btn card-action-btn--view" type="button" @click.stop="openProduct(p.id)">{{ t('marketplace.viewDetails') }}</button>
                   <button class="card-action-btn card-action-btn--quote" type="button" @click.stop="handleAdd(p.id)">{{ t('marketplace.addToQuote') }}</button>
                 </div>
               </div>
@@ -401,10 +504,10 @@ const filteredSidebarCategories = computed(() => {
                     v-for="p in products"
                     :key="p.id"
                     class="exec-row cursor-pointer"
-                    @click="router.push({ name: 'marketplace-product', params: { id: p.id } })"
+                    @click="openProduct(p.id)"
                   >
                     <td>
-                      <div class="flex items-center gap-3">
+                      <div class="exec-row__media">
                         <div class="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
                           <AppImage
                             :src="p.imageName"
@@ -414,12 +517,12 @@ const filteredSidebarCategories = computed(() => {
                             class="w-full h-full object-cover"
                           />
                         </div>
-                        <div>
-                          <div class="font-semibold text-slate-900 text-sm hover:text-teal-600 transition-colors">
+                        <div class="exec-row__meta">
+                          <router-link class="exec-row__name" :to="{ name: 'marketplace-product', params: { id: p.id } }" @click.stop>
                             {{ localized(p.nameEn, p.nameAr) }}
-                          </div>
+                          </router-link>
                           <div class="text-xs text-slate-500 font-mono flex items-center gap-2 mt-0.5">
-                            <span v-if="p.sku">SKU: {{ p.sku }}</span>
+                            <span v-if="p.sku">{{ t('marketplace.sku') }}: {{ p.sku }}</span>
                             <span v-if="p.lengthCm">· {{ p.lengthCm }} cm</span>
                           </div>
                         </div>
@@ -431,8 +534,10 @@ const filteredSidebarCategories = computed(() => {
                       </span>
                     </td>
                     <td>
-                      <span v-if="p.stock > 0" class="stock-pill stock-pill--in mono">{{ t('catalog.inStock') }}</span>
-                      <span v-else class="stock-pill stock-pill--out mono">{{ t('catalog.madeToOrder') }}</span>
+                      <div class="stock-cell">
+                        <span v-if="p.stock > 0" class="stock-pill stock-pill--in mono">{{ t('catalog.inStock') }}</span>
+                        <span v-else class="stock-pill stock-pill--out mono">{{ t('catalog.madeToOrder') }}</span>
+                      </div>
                     </td>
                     <td>
                       <strong class="mono text-sm font-bold text-slate-900">
@@ -464,9 +569,9 @@ const filteredSidebarCategories = computed(() => {
               </table>
             </div>
           </div>
-          <AppPagination v-if="totalPages > 1" :page="page" :total-pages="totalPages" :total-items="totalCount" :page-size="12" class="catalog-pagination" @change="goPage" />
+          <AppPagination v-if="totalPages > 1" :page="page" :total-pages="totalPages" :total-items="totalCount" :page-size="pageSize" class="catalog-pagination" @change="handlePageChange" />
         </template>
-      </main>
+      </section>
     </div>
   </div>
 </template>
@@ -476,42 +581,8 @@ const filteredSidebarCategories = computed(() => {
   width: 100%;
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--step--1);
-  color: var(--wl-muted);
-  margin-bottom: var(--space-5);
-  flex-wrap: wrap;
-}
-
-.breadcrumb a {
-  color: var(--wl-primary);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.breadcrumb a:hover {
-  text-decoration: underline;
-  color: var(--wl-primary-hover);
-}
-
-.breadcrumb a:focus-visible {
-  outline: 2px solid var(--wl-primary);
-  outline-offset: 2px;
-}
-
-.breadcrumb .sep {
-  color: var(--wl-line-strong);
-}
-
-.active-crumb {
-  color: var(--wl-ink-strong);
-  font-weight: 600;
-}
-
 .catalog-head {
+  position: relative;
   margin-bottom: var(--space-6);
 }
 
@@ -527,7 +598,7 @@ const filteredSidebarCategories = computed(() => {
   line-height: 0.98;
   letter-spacing: -0.032em;
 }
-.catalog-head { position: relative; }
+
 .catalog-head::after {
   content: '';
   position: absolute;
@@ -762,7 +833,7 @@ const filteredSidebarCategories = computed(() => {
   font-weight: 600;
   color: var(--wl-primary);
   background: var(--wl-primary-soft);
-  border: 1px solid rgba(var(--wl-primary-rgb, 105, 169, 255), 0.25);
+  border: 1px solid rgba(var(--wl-primary-rgb), 0.25);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -807,7 +878,7 @@ const filteredSidebarCategories = computed(() => {
 }
 
 .cat-search-input {
-  height: 32px;
+  height: 36px;
   font-size: var(--step--1);
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
@@ -815,7 +886,7 @@ const filteredSidebarCategories = computed(() => {
 
 .catalog-grid-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: var(--space-8);
   align-items: start;
 }
@@ -865,6 +936,7 @@ const filteredSidebarCategories = computed(() => {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
+  min-height: 36px;
   border-radius: var(--radius-md);
   font-size: var(--step-0);
   color: var(--wl-ink-soft);
@@ -881,6 +953,7 @@ const filteredSidebarCategories = computed(() => {
   accent-color: var(--wl-primary);
   width: 17px;
   height: 17px;
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: transform 0.15s ease;
@@ -908,8 +981,8 @@ const filteredSidebarCategories = computed(() => {
   flex: 1 1 0;
   min-width: 0;
   width: auto;
-  height: 38px;
-  min-height: 38px;
+  height: 40px;
+  min-height: 40px;
   padding: 0 var(--space-2);
   font-size: var(--step-0);
   text-align: center;
@@ -964,13 +1037,22 @@ const filteredSidebarCategories = computed(() => {
 
 .results-meta-bar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-3);
+}
+
+.results-meta-bar__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: var(--space-6);
 }
 
@@ -1009,11 +1091,6 @@ const filteredSidebarCategories = computed(() => {
   transform: translateY(0);
 }
 
-.catalog-card:focus-visible {
-  outline: 2px solid var(--wl-primary);
-  outline-offset: 2px;
-}
-
 .catalog-card__media {
   height: 195px;
   width: 100%;
@@ -1032,15 +1109,6 @@ const filteredSidebarCategories = computed(() => {
 
 .catalog-card:hover .catalog-card__img {
   transform: scale(1.05);
-}
-
-.catalog-card__sku-fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--wl-muted);
-  font-size: 0.8rem;
 }
 
 .catalog-card__badges {
@@ -1066,7 +1134,7 @@ const filteredSidebarCategories = computed(() => {
 
 .stock-pill {
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-xs, 3px);
+  border-radius: var(--radius-xs);
   font-size: var(--step--1);
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -1077,15 +1145,11 @@ const filteredSidebarCategories = computed(() => {
 }
 
 .stock-pill--in {
-  background: var(--color-success-500, #198754);
-}
-
-.stock-pill--low {
-  background: var(--color-warning-500, #E67E22);
+  background: var(--color-success-500);
 }
 
 .stock-pill--out {
-  background: var(--color-danger-500, #DC3545);
+  background: var(--color-danger-500);
 }
 
 .catalog-card__body {
@@ -1113,6 +1177,23 @@ const filteredSidebarCategories = computed(() => {
   text-align: start;
   overflow-wrap: anywhere;
 }
+
+.catalog-card__title-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.catalog-card__title-link:hover {
+  color: var(--wl-primary);
+}
+
+.catalog-card__title-link:focus-visible {
+  outline: 2px solid var(--wl-primary);
+  outline-offset: 3px;
+}
+
 .catalog-card__title-alt {
   font-size: var(--step--1);
   color: var(--wl-muted);
@@ -1301,36 +1382,89 @@ const filteredSidebarCategories = computed(() => {
   padding: var(--space-4);
 }
 
-.catalog-page-btn {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--wl-line);
-  background: var(--wl-surface);
-  border-radius: var(--radius-sm);
-  color: var(--wl-ink-strong);
-  font-size: var(--step-0);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
+/* List View — mirrors the grid cards: hairline separators, mono headers and
+   a scroller so the table never overflows the page on narrow screens. */
+.catalog-list-card .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.catalog-page-btn:hover:not(:disabled) {
-  border-color: var(--wl-primary);
+.exec-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: var(--step-0);
+  color: var(--wl-ink-soft);
+}
+
+.exec-table thead th {
+  padding: var(--space-3) var(--space-4);
+  text-align: start;
+  font-family: var(--wl-font-mono);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wl-muted);
+  background: var(--wl-surface-soft);
+  border-bottom: 1px solid var(--wl-line);
+  white-space: nowrap;
+}
+
+.exec-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--wl-line);
+  vertical-align: middle;
+}
+
+.exec-row {
+  background: var(--wl-surface);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.exec-row:hover {
+  background: var(--wl-surface-soft);
+}
+
+.exec-row:last-child td {
+  border-bottom: none;
+}
+
+.exec-row__media {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 220px;
+}
+
+.exec-row__meta {
+  min-width: 0;
+}
+
+.exec-row__name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--wl-ink-strong);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.exec-row__name:hover {
   color: var(--wl-primary);
 }
 
-.catalog-page-btn:focus-visible {
+.exec-row__name:focus-visible {
   outline: 2px solid var(--wl-primary);
   outline-offset: 2px;
 }
 
-.catalog-page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.catalog-page-info {
-  font-size: var(--step-0);
-  color: var(--wl-muted);
+/* The stock pill is absolutely positioned, so its cell needs an anchor. */
+.stock-cell {
+  position: relative;
+  min-width: 96px;
+  min-height: 24px;
 }
 
 @media (max-width: 1120px) {
@@ -1339,9 +1473,17 @@ const filteredSidebarCategories = computed(() => {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .catalog-grid-layout {
     grid-template-columns: 1fr;
+  }
+
+  .filter-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-overlay);
+    background: rgba(2, 12, 27, 0.55);
+    backdrop-filter: blur(2px);
   }
 
   .filter-sidebar {
@@ -1350,7 +1492,7 @@ const filteredSidebarCategories = computed(() => {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: var(--z-modal);
     border-radius: 0;
     display: none;
     overflow-y: auto;
@@ -1373,6 +1515,23 @@ const filteredSidebarCategories = computed(() => {
     border: none;
     color: var(--wl-ink-strong);
     cursor: pointer;
+    min-width: var(--wl-touch-min);
+    min-height: var(--wl-touch-min);
+    display: grid;
+    place-items: center;
+  }
+}
+
+/* Above the collapse point the sidebar is permanently in the layout, so the
+   sheet's open/close affordances must not render at all.
+   Declared here rather than with `lg:hidden` because there is no PostCSS
+   config in this project, so the Tailwind utility layer is never emitted —
+   `lg:hidden` is an inert class and the close button leaked onto desktop. */
+@media (min-width: 1025px) {
+  .mobile-filter-toggle,
+  .filter-sidebar__header,
+  .filter-backdrop {
+    display: none;
   }
 }
 
@@ -1412,8 +1571,8 @@ const filteredSidebarCategories = computed(() => {
 .view-toggle-btn {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
@@ -1453,6 +1612,48 @@ const filteredSidebarCategories = computed(() => {
   color: var(--color-accent-500) !important;
   background: var(--color-accent-50) !important;
   border-color: var(--color-accent-200) !important;
+}
+
+/* Touch devices: every control reaches the 44px minimum without bloating
+   the desktop density. */
+@media (pointer: coarse) {
+  .cat-search-input,
+  .range-row .range-input,
+  .sort-select,
+  .search-input {
+    height: var(--wl-touch-min);
+    min-height: var(--wl-touch-min);
+  }
+
+  .filter-item,
+  .clear-all-chip,
+  .filter-chip,
+  .reset-filters-btn,
+  .mobile-filter-toggle,
+  .cat-pill {
+    min-height: var(--wl-touch-min);
+  }
+
+  .view-toggle-btn,
+  .catalog-wishlist-btn,
+  .card-action-btn,
+  .clear-search-btn {
+    width: var(--wl-touch-min);
+    min-width: var(--wl-touch-min);
+    height: var(--wl-touch-min);
+    min-height: var(--wl-touch-min);
+  }
+
+  .catalog-wishlist-btn--inline {
+    width: var(--wl-touch-min) !important;
+    min-width: var(--wl-touch-min);
+    height: var(--wl-touch-min) !important;
+    min-height: var(--wl-touch-min);
+  }
+
+  .clear-search-btn {
+    inset-inline-end: var(--space-2);
+  }
 }
 </style>
 

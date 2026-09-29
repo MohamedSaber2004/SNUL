@@ -157,11 +157,11 @@ const navigateToCategory = (catId: string) => {
 
         <div class="sort-wrapper">
           <span class="material-symbols-outlined sort-icon">sort</span>
-          <select v-model="sortBy" class="sort-select mono">
-            <option value="countDesc">Highest Count</option>
-            <option value="countAsc">Lowest Count</option>
-            <option value="nameAsc">Name (A-Z)</option>
-            <option value="nameDesc">Name (Z-A)</option>
+          <select v-model="sortBy" class="sort-select mono" :aria-label="t('common.sortBy')">
+            <option value="countDesc">{{ t('marketplace.sortCountDesc') }}</option>
+            <option value="countAsc">{{ t('marketplace.sortCountAsc') }}</option>
+            <option value="nameAsc">{{ t('marketplace.sortNameAsc') }}</option>
+            <option value="nameDesc">{{ t('marketplace.sortNameDesc') }}</option>
           </select>
         </div>
       </div>

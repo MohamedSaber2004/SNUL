@@ -343,11 +343,11 @@ const browseProviderProducts = (providerId: string) => {
               >
                 <span class="material-symbols-outlined text-[16px]">close</span>
               </button>
-              <kbd v-else-if="!searchFocused" class="search-field__kbd mono" title="Press / to search" @click="focusSearch">/</kbd>
+              <kbd v-else-if="!searchFocused" class="search-field__kbd" title="Press / to search" @click="focusSearch">/</kbd>
 
               <!-- Suggestions -->
               <div v-if="showSuggestions && suggestionList.length" class="suggestions" role="listbox">
-                <p class="suggestions__label mono">
+                <p class="suggestions__label">
                   {{ searchTerm.trim() ? t('providers.sortBy') + ' · ' + suggestionList.length : 'Recent' }}
                 </p>
                 <button
@@ -362,7 +362,7 @@ const browseProviderProducts = (providerId: string) => {
                   <span class="material-symbols-outlined suggestion-item__icon">{{ s.kind === 'recent' ? 'history' : 'search' }}</span>
                   <span class="suggestion-item__text">
                     <span class="suggestion-item__label" dir="auto">{{ s.label }}</span>
-                    <span v-if="s.sub" class="suggestion-item__sub mono" dir="auto">{{ s.sub }}</span>
+                    <span v-if="s.sub" class="suggestion-item__sub" dir="auto">{{ s.sub }}</span>
                   </span>
                   <span class="material-symbols-outlined suggestion-item__go icon--directional">arrow_forward</span>
                 </button>
@@ -427,7 +427,7 @@ const browseProviderProducts = (providerId: string) => {
                 <span dir="auto">{{ countryChipLabel }}</span>
                 <span class="material-symbols-outlined text-[14px]">close</span>
               </button>
-              <button type="button" class="btn-reset-filters mono" @click="resetFilters">
+              <button type="button" class="btn-reset-filters" @click="resetFilters">
                 <span class="material-symbols-outlined text-[14px]">filter_alt_off</span>
                 <span>{{ t('common.clearFilters') }}</span>
               </button>
@@ -455,51 +455,52 @@ const browseProviderProducts = (providerId: string) => {
               v-for="provider in paginatedProviders"
               :key="provider.id"
               class="provider-card"
-              @click="browseProviderProducts(provider.id)"
             >
-              <!-- Card Header / Logo Preview -->
+              <!-- Circular avatar, left-anchored — the row's visual anchor -->
               <div class="provider-card__logo-wrap">
-                <AppImage
-                  :src="provider.imageName"
-                  placeholder-type="company"
-                  :placeholder-text="provider.name"
-                  :alt="provider.name"
-                  fit="contain"
-  height="180px"
-  class="provider-card__img"
-                />
-                <span class="badge-verified mono">
-                  <span class="material-symbols-outlined text-[13px]">verified</span>
-                  <span>{{ t('providers.verifiedBadge') }}</span>
-                </span>
+                <div class="provider-card__avatar">
+                  <AppImage
+                    :src="provider.imageName"
+                    placeholder-type="company"
+                    :placeholder-text="provider.name"
+                    :alt="provider.name"
+                    fit="contain"
+                    height="90px"
+                    class="provider-card__img"
+                  />
+                  <span class="badge-verified" :title="t('providers.verifiedBadge')">
+                    <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+                    <span class="sr-only">{{ t('providers.verifiedBadge') }}</span>
+                  </span>
+                </div>
               </div>
 
               <!-- Card Body -->
               <div class="provider-card__body">
                 <div class="provider-card__meta-badges">
-                  <span class="badge-type mono">
+                  <span class="badge-type">
                     {{ getTypeLabel(provider.type) }}
                   </span>
                 </div>
 
                 <h2 class="provider-card__name" dir="auto"><template v-for="(part, pi) in highlightParts(provider.name)" :key="pi"><mark v-if="part.hit" class="hl">{{ part.text }}</mark><template v-else>{{ part.text }}</template></template></h2>
 
-                <div v-if="provider.countryNameEn || provider.countryNameAr" class="provider-card__country mono">
-                  <span class="material-symbols-outlined text-[15px] text-[var(--wl-primary)]">public</span>
+                <div v-if="provider.countryNameEn || provider.countryNameAr" class="provider-card__country">
+                  <span class="material-symbols-outlined" aria-hidden="true">public</span>
                   <span>{{ localized(provider.countryNameEn, provider.countryNameAr) }}</span>
                 </div>
+              </div>
 
-                <!-- Footer Action -->
-                <div class="provider-card__foot">
-                  <button
-                    type="button"
-                    class="btn-view-products"
-                    @click.stop="browseProviderProducts(provider.id)"
-                  >
-                    <span>{{ t('providers.viewProducts') }}</span>
-                    <span class="icon--directional">→</span>
-                  </button>
-                </div>
+              <!-- Trailing action -->
+              <div class="provider-card__foot">
+                <button
+                  type="button"
+                  class="btn-view-products"
+                  @click="browseProviderProducts(provider.id)"
+                >
+                  <span>{{ t('providers.viewProducts') }}</span>
+                  <span class="icon--directional">→</span>
+                </button>
               </div>
             </article>
           </div>
@@ -554,7 +555,6 @@ const browseProviderProducts = (providerId: string) => {
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--wl-gold);
-  text-transform: uppercase;
   text-shadow: var(--wl-gold-text-shadow);
 }
 
@@ -880,44 +880,65 @@ const browseProviderProducts = (providerId: string) => {
 
 /* Providers Grid */
 .providers-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
-/* Provider Card */
+/* Provider Card — horizontal row: circular avatar left, content right */
 .provider-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
   border-radius: var(--radius-lg, 16px);
-  overflow: hidden;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.1rem 1.35rem;
   cursor: pointer;
   transition: transform var(--wl-transition, 0.18s cubic-bezier(0.16, 1, 0.3, 1)), box-shadow 0.18s ease, border-color 0.18s ease;
   position: relative;
 }
 
 .provider-card:hover {
-  transform: translateY(-3px);
+  transform: translateX(3px);
   box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 10, 25, 0.05));
   border-color: var(--wl-primary-soft);
 }
 .provider-card:focus-within { border-color: var(--wl-primary); box-shadow: var(--wl-focus-ring); }
 
+/* Row slides toward the reading edge, mirrored for RTL */
+[dir='rtl'] .provider-card:hover { transform: translateX(-3px); }
+
+/* Avatar column */
 .provider-card__logo-wrap {
   position: relative;
-  height: 180px;
-  min-height: 180px;
-  background: linear-gradient(180deg, var(--wl-surface-soft) 0%, var(--wl-surface) 100%);
-  border-bottom: 1px solid var(--wl-border);
-  padding: 1rem;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-  .provider-card__img {
+.provider-card__avatar {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: visible;
+  background: var(--wl-surface-soft);
+  border: 2px solid var(--wl-border);
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease;
+}
+
+.provider-card:hover .provider-card__avatar {
+  border-color: var(--wl-primary-soft);
+}
+
+.provider-card__img {
   width: 100%;
   height: 100%;
   max-width: 100%;
@@ -925,35 +946,39 @@ const browseProviderProducts = (providerId: string) => {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  }
+  border-radius: 50%;
+}
   .provider-card__img :deep(.app-image-placeholder) { inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
   .provider-card__img :deep(.placeholder-text) { max-width: min(86%, 240px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .provider-card__img :deep(.placeholder-icon-badge) { width: 48px; height: 48px; flex: 0 0 48px; }
   .provider-card__img :deep(.placeholder-icon) { font-size: 24px; }
 
+/* Verified tick sits on the avatar's lower edge */
 .badge-verified {
   position: absolute;
-  top: 0.6rem;
-  inset-inline-end: 0.6rem;
+  inset-block-end: -4px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  background: var(--wl-success-soft);
-  color: var(--wl-success);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  padding: 0.2rem 0.45rem;
-  border-radius: 9999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--wl-success);
+  color: #fff;
+  border: 2px solid var(--wl-surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
+.badge-verified .material-symbols-outlined { font-size: 13px; line-height: 1; }
 
 .provider-card__body {
-  padding: 1.25rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 0.6rem;
+  min-width: 0;
+  gap: 0.4rem;
 }
 
 .provider-card__meta-badges {
@@ -965,7 +990,6 @@ const browseProviderProducts = (providerId: string) => {
 .badge-type {
   font-size: 0.68rem;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   background: var(--wl-surface-soft);
   color: var(--wl-ink-soft);
@@ -997,9 +1021,9 @@ const browseProviderProducts = (providerId: string) => {
 }
 
 .provider-card__foot {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--wl-border);
+  flex: 0 0 auto;
+  align-self: center;
+  margin-inline-start: auto;
 }
 
 .provider-card__name .hl {
@@ -1010,14 +1034,14 @@ const browseProviderProducts = (providerId: string) => {
 }
 
 .btn-view-products {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
   background: var(--wl-surface-soft);
   border: 1px solid var(--wl-border);
   border-radius: var(--radius-sm, 10px);
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem 0.9rem;
   min-height: 40px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1063,7 +1087,14 @@ const browseProviderProducts = (providerId: string) => {
   .providers-content { padding: 1.25rem 1rem; }
   .view-header { padding: 1.75rem 1rem 1.5rem; }
   .search-panel__selects { grid-template-columns: 1fr; }
-  .providers-grid { grid-template-columns: 1fr; }
+  .provider-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+  .provider-card__body { width: 100%; }
+  .provider-card__foot { margin-inline-start: 0; align-self: stretch; }
+  .provider-card__foot .btn-view-products { width: 100%; }
   .suggestions { position: absolute; }
 }
 @media (prefers-reduced-motion: reduce) {

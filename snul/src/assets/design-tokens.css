@@ -4,14 +4,12 @@
    Load this file BEFORE components.css.
 
    Palette: Arctic Frost & Deep Navy (Cold Clinical Clarity)
-   Typography: Plus Jakarta Sans (Display) + Inter (Body) + Cairo (Arabic) + JetBrains Mono (Codes/DIN)
+   Typography: Arial (single family across the entire application)
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
    1. Fonts
    -------------------------------------------------------------------------- */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
-
 :root {
   /* ------------------------------------------------------------------
      2. Raw palette — Arctic Frost & Deep Navy
@@ -53,6 +51,7 @@
   --color-neutral-300: #BDD1E5;  /* Strong divide / form outline */
   --color-neutral-400: #8DA4BE;  /* Placeholder & muted indicator */
   --color-neutral-500: #627D97;  /* Ink-3: captions, micro metadata */
+  --color-neutral-450: #4F6B85;  /* AA-compliant subtle text (5.21:1 on the page canvas) */
   --color-neutral-600: #42576B;  /* Ink-2: secondary / muted body text */
   --color-neutral-700: #263B4D;  /* Standard body text */
   --color-neutral-800: #162736;  /* Strong high-contrast body text */
@@ -61,16 +60,52 @@
   /* Status */
   --color-success-500: #059669;
   --color-success-600: #047857;
+  --color-success-700: #065F46;
   --color-success-100: #D1FAE5;
   --color-warning-500: #D97706;
   --color-warning-600: #B45309;
+  --color-warning-700: #92400E;
   --color-warning-100: #FEF3C7;
   --color-danger-500:  #E11D48;
   --color-danger-600:  #BE123C;
+  --color-danger-700:  #9F1239;
   --color-danger-100:  #FFE4E6;
   --color-info-500:    #0284C7;
   --color-info-600:    #0369A1;
+  --color-info-700:    #075985;
   --color-info-100:    #E0F2FE;
+
+  /* Secondary categorical ramps.
+     These raw names are still referenced by base.css / components.css /
+     main.css / StatCard.vue. Without them the declarations are invalid at
+     computed-value time, which silently drops the whole declaration (a
+     var() fallback does NOT rescue an invalid custom property). */
+  --color-green-100:  var(--color-success-100);
+  --color-green-500:  var(--color-success-500);
+  --color-orange-100: var(--color-warning-100);
+  --color-orange-500: var(--color-warning-500);
+  --color-rose-100:   var(--color-danger-100);
+  --color-rose-500:   var(--color-danger-500);
+  --color-violet-100: #EDE9FE;
+  --color-violet-500: #7C3AED;
+  --color-violet-700: #5B21B6;
+
+  /* Data-visualisation palette.
+     Previously undeclared, so `var(--chart-1)` and friends were invalid at
+     computed-value time. Because a var() fallback only fires when a property
+     is unset — not when it is invalid — the fallbacks in components.css could
+     not rescue them. Result: every .progress bar rendered empty, every
+     .legend__swatch was transparent, and `.map path` fell back to its initial
+     value (black). All six are chosen at a 600-weight so they stay legible as
+     text on their paired 100-weight tint. */
+  --chart-1: var(--color-primary-600);   /* #0C63B8 */
+  --chart-2: var(--color-success-600);   /* #047857 */
+  --chart-3: var(--color-violet-500);    /* #7C3AED */
+  --chart-4: var(--color-warning-600);   /* #B45309 */
+  --chart-5: var(--color-danger-600);    /* #BE123C */
+  --chart-6: var(--color-neutral-600);   /* #42576B */
+  --chart-track: var(--color-neutral-200);
+  --chart-map-idle: var(--color-neutral-300);
 
   /* ------------------------------------------------------------------
      3. Semantic tokens — what components actually reference
@@ -85,12 +120,16 @@
   --bg-overlay:    rgba(11, 23, 38, 0.52);
 
 
-  /* Text — rich navy scale (not black, full color character) */
-  --fg-heading:    var(--color-neutral-800);   /* #162736 deep slate-navy  */
-  --fg-body:       var(--color-neutral-700);   /* #263B4D standard navy    */
-  --fg-muted:      var(--color-neutral-500);   /* #627D97 steel-blue muted */
-  --fg-subtle:     var(--color-neutral-400);   /* #8DA4BE cool mid-blue    */
-  --fg-placeholder:var(--color-neutral-300);   /* #BDD1E5 frost placeholder */
+  /* Text — rich navy scale (not black, full color character)
+     --fg-muted / --fg-subtle are body-size text, so they must clear WCAG AA
+     (4.5:1) against --bg-surface (#FFFFFF). neutral-500 measured 4.28:1 and
+     neutral-400 measured 2.57:1 — both failed. These now sit at 7.48:1 and
+     4.79:1 while staying inside the existing neutral ramp (no new hues). */
+  --fg-heading:    var(--color-neutral-800);   /* #162736 deep slate-navy   15.4:1 */
+  --fg-body:       var(--color-neutral-700);   /* #263B4D standard navy     11.2:1 */
+  --fg-muted:      var(--color-neutral-600);   /* #42576B secondary muted     7.48:1 */
+  --fg-subtle:     var(--color-neutral-450);   /* #4F6B85 micro captions      5.21:1 */
+  --fg-placeholder:var(--color-neutral-500);   /* #627D97 frost placeholder  4.28:1 */
   --fg-on-brand:   var(--color-neutral-0);
   --fg-link:       var(--color-primary-600);
 
@@ -101,11 +140,18 @@
   --brand-soft:    var(--color-primary-100);
   --brand-soft-hover: var(--color-primary-200);
   --color-brand-200: var(--color-primary-200);
-  --brand-gradient: linear-gradient(135deg, #0A4F96 0%, #0C63B8 52%, #0284C7 100%);
+  --color-brand-300: var(--color-primary-300);
+  /* Final stop is --accent-700 (5.93:1 on white) rather than --accent-600
+     #0284C7 (4.09:1) so white text on this gradient clears WCAG AA. */
+  --brand-gradient: linear-gradient(135deg, #0A4F96 0%, #0C63B8 52%, #0369A1 100%);
 
   /* Accent */
-  --accent:        var(--color-accent-600);
-  --accent-hover:  var(--color-accent-700);
+  /* Accent — sits behind white text in most of its uses, so it points at the
+     700 step (5.93:1 on white). The old 600 step (#0284C7) was 4.09:1 and
+     failed AA everywhere it carried white. Hover steps down one further so
+     the hover state is still visible. */
+  --accent:        var(--color-accent-700);
+  --accent-hover:  var(--color-accent-800);
   --accent-soft:   var(--color-accent-100);
 
   /* Borders */
@@ -119,14 +165,27 @@
   --fg-danger:  var(--color-danger-600);
   --fg-info:    var(--color-info-600);
 
+  /* Interaction state */
+  --state-disabled-opacity: 0.55;
+  --state-disabled-cursor: not-allowed;
+  --state-loading-opacity: 0.65;
+
   /* ------------------------------------------------------------------
      4. Typography
      ------------------------------------------------------------------ */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-body: var(--font-sans);
-  --font-display: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
-  --font-arabic: "Cairo", "Readex Pro", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  /* Typography — Arial is the ONLY family in the system. No webfont is
+     downloaded; Material Symbols is the sole external font.
+     Deliberate constraint: --font-mono stays Arial rather than a monospace
+     stack, because the brief is "Arial only". The trade-off is that Arial has
+     no fixed advance width, so `font-variant-numeric: tabular-nums` on prices,
+     SKUs and table numeric columns is a no-op and digits will not align in
+     columns. Swap this one line for a monospace stack if aligned figures are
+     ever worth a second family. */
+  --font-sans: Arial;
+  --font-body: Arial;
+  --font-display: Arial;
+  --font-arabic: Arial;
+  --font-mono: Arial;
 
   --text-2xs: 0.625rem;  /* 10px — chart axis labels        */
   --text-xs:  0.6875rem; /* 11px — legends, micro deltas    */
@@ -180,6 +239,8 @@
   --radius-xl: 20px;
   --radius-2xl: 24px;
   --radius-pill: 9999px;
+  --radius-full: 9999px;   /* alias of pill — was referenced but never declared */
+  --radius-card: var(--radius-lg);  /* card shells — was undefined in 30 places */
 
   /* ------------------------------------------------------------------
      7. Elevation & Shadows — Enhanced Clinical Depth
@@ -235,6 +296,13 @@
 /* --------------------------------------------------------------------------
    12. Right-to-left support (Arabic typography & layout)
    -------------------------------------------------------------------------- */
+/* --flip must be declared BEFORE the [dir="rtl"] override. Both selectors have
+   identical specificity, so source order decides the winner; declaring :root
+   afterwards pinned --flip to 1 in every RTL build and broke the off-canvas
+   sidebar, switch knobs and directional icon nudges. */
+:root {
+  --flip: 1;
+}
 [dir="rtl"] {
   --flip: -1;
   font-family: var(--font-arabic);
@@ -242,7 +310,4 @@
 [dir="rtl"] :is(h1, h2, h3, h4, h5, h6, .font-display, .font-display-lg, .font-headline-lg) {
   font-family: var(--font-arabic);
   letter-spacing: normal;
-}
-:root {
-  --flip: 1;
 }

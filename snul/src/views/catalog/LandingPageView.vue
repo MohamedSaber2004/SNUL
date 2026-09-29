@@ -26,6 +26,31 @@ const error = ref('')
 const products = ref<ProductDto[]>([])
 const categories = ref<CategoryDto[]>([])
 const relatedPages = ref<LandingPageDto[]>([])
+const showAllLandingPages = ref(false)
+
+const displayedLandingPages = computed(() => {
+  if (showAllLandingPages.value) return relatedPages.value
+  return relatedPages.value.slice(0, 4)
+})
+
+function getSpecialtyIcon(type?: string, slug?: string): string {
+  const s = (slug || '').toLowerCase()
+  const t = (type || '').toLowerCase()
+  if (s.includes('cardio') || s.includes('heart')) return 'cardiology'
+  if (s.includes('ortho') || s.includes('bone') || s.includes('joint')) return 'orthopedics'
+  if (s.includes('neuro') || s.includes('spine')) return 'neurology'
+  if (s.includes('dent') || s.includes('oral')) return 'dentistry'
+  if (s.includes('eye') || s.includes('ophthal')) return 'ophthalmology'
+  if (s.includes('ent') || s.includes('ear') || s.includes('throat')) return 'hearing'
+  if (s.includes('surg') || s.includes('general')) return 'surgical'
+  if (s.includes('derma')) return 'dermatology'
+  if (s.includes('pedia')) return 'child_care'
+  if (s.includes('gyn') || s.includes('obs')) return 'pregnant_woman'
+  if (s.includes('urol')) return 'water_drop'
+  if (t === 'brand') return 'verified'
+  if (t === 'procedure') return 'precision_manufacturing'
+  return 'medical_services'
+}
 
 const localized = (en: string, ar: string) => (locale.value === 'ar' ? ar : en)
 const slug = computed(() => String(route.params.slug || ''))
@@ -45,7 +70,7 @@ async function load(s: string) {
         found.categoryId ? marketplaceRepository.getProducts({ categoryId: found.categoryId, page: 1, pageSize: 8 }).catch(() => ({ data: [] as ProductDto[] })) : Promise.resolve({ data: [] as ProductDto[] }),
       ])
       if (list.status === 'fulfilled' && list.value?.data) {
-        relatedPages.value = (list.value.data as LandingPageDto[]).filter((p: LandingPageDto) => p.slug !== s && p.type === 'Specialty').slice(0, 4)
+        relatedPages.value = (list.value.data as LandingPageDto[]).filter((p: LandingPageDto) => p.slug !== s)
       }
       if (prodRes.status === 'fulfilled' && (prodRes.value as { data?: ProductDto[] })?.data) {
         products.value = (prodRes.value as { data: ProductDto[] }).data
@@ -54,7 +79,7 @@ async function load(s: string) {
       const [prodRes, catRes, listRes] = await Promise.allSettled([
         marketplaceRepository.getProducts({ page: 1, pageSize: 12 }).catch(() => ({ data: [] as ProductDto[] })),
         marketplaceRepository.getCategories().catch(() => [] as CategoryDto[]),
-        contentRepository.getLandingPages({ pageNumber: 1, pageSize: 8 }).catch(() => ({ data: [] as LandingPageDto[] })),
+        contentRepository.getLandingPages({ pageNumber: 1, pageSize: 50 }).catch(() => ({ data: [] as LandingPageDto[] })),
       ])
       if (catRes.status === 'fulfilled' && Array.isArray(catRes.value)) {
         categories.value = (catRes.value as CategoryDto[]).slice(0, 8) as CategoryDto[]
@@ -67,7 +92,7 @@ async function load(s: string) {
         }
       }
       if (listRes.status === 'fulfilled' && (listRes.value as { data?: LandingPageDto[] })?.data) {
-        relatedPages.value = ((listRes.value as { data: LandingPageDto[] }).data as LandingPageDto[]).filter((p) => p.type === 'Specialty').slice(0, 4)
+        relatedPages.value = ((listRes.value as { data: LandingPageDto[] }).data as LandingPageDto[]).filter((p) => p.slug !== s)
       }
     }
   } catch (e) {
@@ -88,12 +113,34 @@ const handleAddToQuote = (e: Event, p: ProductDto) => {
 
 const heroTitle = computed(() => page.value ? localized(page.value.heroTitle || page.value.slug, page.value.heroTitle || page.value.slug) : localized(slug.value.replace(/-/g, ' '), slug.value.replace(/-/g, ' ')))
 const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
+
+const contentParagraphs = computed(() => {
+  if (!page.value?.contentBlock) return null
+  const split = page.value.contentBlock
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  return split.length ? split : null
+})
+
+const browseLink = computed(() =>
+  page.value?.categoryId
+    ? { name: 'marketplace', query: { categoryId: page.value.categoryId } }
+    : { name: 'marketplace' },
+)
+
+const pageFacts = computed(() => [
+  { icon: 'category', label: t('landing.pageTypeLabel'), value: page.value?.type || t('nav.catalog') },
+  { icon: 'medical_services', label: t('landing.categoryLabel'), value: page.value?.categoryName || t('landing.allCategories') },
+  { icon: 'inventory_2', label: t('landing.instrumentsListed'), value: t('landing.instrumentsCount', { count: products.value.length }) },
+  { icon: 'explore', label: t('landing.relatedPagesLabel'), value: t('landing.relatedPagesCount', { count: relatedPages.value.length }) },
+])
 </script>
 
 <template>
   <div class="page-shell landing-shell">
     <div class="landing-topbar">
-      <nav class="landing-crumb mono" :aria-label="t('common.breadcrumb')">
+      <nav class="landing-crumb" :aria-label="t('common.breadcrumb')">
         <router-link to="/">{{ t('nav.home') }}</router-link>
         <span class="crumb-sep">/</span>
         <router-link to="/marketplace">{{ t('nav.marketplace') }}</router-link>
@@ -111,36 +158,35 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
       <section class="lp-hero">
         <div class="lp-hero__glow" aria-hidden="true"></div>
         <div class="lp-hero__inner">
-          <div>
-            <div class="lp-eyebrow mono">
+          <div class="lp-hero__copy">
+            <div class="lp-eyebrow">
               <span class="lp-dot" aria-hidden="true"></span>
-              <span class="lp-tag mono">{{ page ? page.type : t('nav.catalog') }}</span>
-              <span class="lp-url mono">/catalog/{{ page ? page.slug : slug }}</span>
+              <span class="lp-tag">{{ page ? page.type : t('nav.catalog') }}</span>
             </div>
             <h1 class="lp-title">{{ heroTitle }}</h1>
             <p class="lp-body">{{ heroBody }}</p>
             <div class="lp-actions">
-              <BaseButton variant="primary" @click="router.push({ name: 'marketplace' })">{{ t('landing.browseInstruments') }}</BaseButton>
-              <BaseButton variant="outline" @click="router.push({ name: 'marketplace' })">{{ t('landing.requestQuote') }}</BaseButton>
+              <BaseButton variant="primary" @click="router.push(browseLink)">{{ t('landing.browseInstruments') }}</BaseButton>
+              <BaseButton variant="outline" @click="router.push({ name: 'help' })">{{ t('landing.requestQuote') }}</BaseButton>
             </div>
-            <div class="lp-credentials mono">
-              <span>{{ t('landing.manufactured') }}</span>
-            </div>
+            <p class="lp-credentials">{{ t('landing.manufactured') }}</p>
           </div>
-          <div class="lp-spec-card mono" aria-hidden="true">
-            <div class="spec-card__header">
-              <span class="spec-card__tag">SPEC · {{ page ? page.type?.toUpperCase() : 'CATALOG' }}</span>
-              <span class="spec-card__live"><span class="spec-dot"></span> LIVE</span>
+          <dl class="lp-facts">
+            <div v-for="fact in pageFacts" :key="fact.label" class="lp-fact">
+              <dt class="lp-fact__label">
+                <span class="material-symbols-outlined lp-fact__icon" aria-hidden="true">{{ fact.icon }}</span>
+                {{ fact.label }}
+              </dt>
+              <dd class="lp-fact__value">{{ fact.value }}</dd>
             </div>
-            <div class="spec-card__body">
-              <div class="spec-item"><span class="spec-item__label">ORIGIN</span><strong class="spec-item__val">Sialkot · Tuttlingen</strong></div>
-              <div class="spec-item"><span class="spec-item__label">STEEL</span><strong class="spec-item__val">AISI 420 · 1.4021</strong></div>
-              <div class="spec-item"><span class="spec-item__label">TOLERANCE</span><strong class="spec-item__val">±0.02 mm</strong></div>
-            </div>
-            <div class="spec-card__footer mono">
-              <span class="spec-brand">SNUL</span><span>{{ products.length }} instruments indexed</span>
-            </div>
-          </div>
+          </dl>
+        </div>
+      </section>
+
+      <section v-if="contentParagraphs" class="lp-content-section" aria-labelledby="overview-heading">
+        <h2 id="overview-heading" class="section-title">{{ t('landing.overview') }}</h2>
+        <div class="lp-content-body">
+          <p v-for="(para, i) in contentParagraphs" :key="i" dir="auto">{{ para }}</p>
         </div>
       </section>
 
@@ -148,13 +194,24 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
         <section class="lp-products-section" aria-labelledby="products-heading">
           <div class="section-head">
             <div>
-              <div class="section-eyebrow mono"><span class="eyebrow-dot"></span>{{ t('landing.featuredProducts') }}</div>
+              <div class="section-eyebrow"><span class="eyebrow-dot"></span>{{ t('landing.featuredProducts') }}</div>
               <h2 id="products-heading" class="section-title">{{ heroTitle }}</h2>
             </div>
-            <button class="view-all-btn" type="button" @click="router.push({ name: 'marketplace' })">{{ t('common.next') }} <span class="icon--directional">→</span></button>
+            <router-link :to="browseLink" class="btn-view-all">
+              <span>{{ t('common.viewAll') }}</span>
+              <span class="material-symbols-outlined text-[15px] icon--directional">arrow_forward</span>
+            </router-link>
           </div>
           <div class="product-grid">
-            <article v-for="p in products" :key="p.id" class="product-card" @click="router.push({ name: 'marketplace-product', params: { id: p.id } })">
+            <article
+              v-for="p in products"
+              :key="p.id"
+              class="product-card interactive-lift anim-card-hover"
+              tabindex="0"
+              role="button"
+              @click="router.push({ name: 'marketplace-product', params: { id: p.id } })"
+              @keydown.enter="router.push({ name: 'marketplace-product', params: { id: p.id } })"
+            >
               <div class="product-card__media" :style="{ background: productMediaUrl(p.imageName, p.imageGradient).background }">
                 <AppImage
                   :src="p.imageName"
@@ -163,14 +220,31 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
                   fit="cover"
                   class="product-card__img"
                 />
+                <span v-if="p.sku" class="sku-chip">{{ p.sku }}</span>
               </div>
               <div class="product-card__body">
-                <div class="mono" style="font-size:10px;color:var(--wl-muted)">{{ localized(p.categoryNameEn || '', p.categoryNameAr || '') }}</div>
+                <div class="product-card__cat">
+                  {{ localized(p.categoryNameEn || '', p.categoryNameAr || '') }}
+                </div>
                 <h3 class="product-card__name" dir="auto">{{ localized(p.nameEn, p.nameAr) }}</h3>
-                <div class="product-card__meta mono">{{ p.material || '—' }} <span class="meta-dot">·</span> {{ p.lengthCm ? `${p.lengthCm} cm` : '—' }}</div>
+                <div class="product-card__meta">
+                  <span v-if="p.material" class="spec-pill">{{ p.material }}</span>
+                  <span v-if="p.lengthCm" class="spec-pill">{{ p.lengthCm }} cm</span>
+                </div>
                 <div class="product-card__bottom">
-                  <span class="price-val mono-num">{{ formatPrice(p.price, locale) }} {{ p.currencySymbol || p.currencyCode || '$' }}</span>
-                  <button class="add-quote-btn" type="button" @click="handleAddToQuote($event, p)">{{ t('marketplace.addToQuote') }}</button>
+                  <div class="price-wrap">
+                    <span class="price-val mono-num">{{ formatPrice(p.price, locale) }}</span>
+                    <span class="currency-tag">{{ p.currencySymbol || p.currencyCode || '$' }}</span>
+                  </div>
+                  <button
+                    class="add-quote-btn"
+                    type="button"
+                    :aria-label="t('marketplace.addToQuote')"
+                    @click="handleAddToQuote($event, p)"
+                  >
+                    <span class="material-symbols-outlined text-[15px]">add_shopping_cart</span>
+                    <span>{{ t('marketplace.addToQuote') }}</span>
+                  </button>
                 </div>
               </div>
             </article>
@@ -178,10 +252,24 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
         </section>
       </DataState>
 
-      <section v-if="!page && categories.length" class="lp-related-section" style="margin-top:1.5rem">
-        <h3 class="section-title" style="font-size:1.15rem;margin-bottom:1rem">{{ t('marketplace.categoriesTitle') }}</h3>
+      <section v-if="!page && categories.length" class="lp-related-section" style="margin-top:2rem">
+        <div class="section-head">
+          <div>
+            <div class="section-eyebrow"><span class="eyebrow-dot"></span>{{ t('home.browseByCategory') }}</div>
+            <h3 class="section-title" style="font-size:1.25rem">{{ t('marketplace.categoriesTitle') }}</h3>
+          </div>
+          <router-link to="/categories" class="btn-view-all">
+            <span>{{ t('common.viewAll') }}</span>
+            <span class="material-symbols-outlined text-[15px] icon--directional">arrow_forward</span>
+          </router-link>
+        </div>
         <div class="related-grid">
-          <router-link v-for="c in categories" :key="c.id" :to="{ name: 'marketplace', query: { categoryId: c.id } }" class="cat-card">
+          <router-link
+            v-for="c in categories"
+            :key="c.id"
+            :to="{ name: 'marketplace', query: { categoryId: c.id } }"
+            class="cat-card interactive-lift anim-card-hover"
+          >
             <div class="cat-media">
               <AppImage
                 :src="c.imageName"
@@ -193,22 +281,61 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
             </div>
             <div class="cat-body">
               <div class="cat-name" dir="auto">{{ localized(c.nameEn, c.nameAr) }}</div>
-                <span class="mono cat-count">{{ t('landing.instrumentsCount', { count: c.productCount ?? 0 }) }}</span>
+              <span class="cat-count">{{ t('landing.instrumentsCount', { count: c.productCount ?? 0 }) }}</span>
             </div>
           </router-link>
         </div>
       </section>
 
-      <section v-if="relatedPages.length" class="lp-related-section">
-        <h3 class="section-title" style="font-size:1.15rem;margin-bottom:1rem">{{ t('landing.relatedSpecialties') }}</h3>
+      <section v-if="relatedPages.length" class="lp-related-section" style="margin-top:2rem">
+        <div class="section-head">
+          <div>
+            <div class="section-eyebrow"><span class="eyebrow-dot"></span>{{ t('landing.relatedSpecialties') }}</div>
+            <h3 class="section-title" style="font-size:1.25rem">{{ t('landing.relatedSpecialties') }}</h3>
+          </div>
+          <button
+            v-if="relatedPages.length > 4"
+            type="button"
+            class="btn-view-all"
+            :aria-expanded="showAllLandingPages"
+            @click="showAllLandingPages = !showAllLandingPages"
+          >
+            <span>
+              {{ showAllLandingPages ? t('common.showLess') : t('landing.viewAllCount', { count: relatedPages.length }) }}
+            </span>
+            <span class="material-symbols-outlined text-[15px]">
+              {{ showAllLandingPages ? 'expand_less' : 'expand_more' }}
+            </span>
+          </button>
+        </div>
         <div class="related-grid">
-          <router-link v-for="rp in relatedPages" :key="rp.id" :to="{ name: 'landing-page', params: { slug: rp.slug } }" class="related-card">
+          <router-link
+            v-for="rp in displayedLandingPages"
+            :key="rp.id"
+            :to="{ name: 'landing-page', params: { slug: rp.slug } }"
+            class="related-card interactive-lift anim-card-hover"
+          >
             <div class="related-card__header">
-              <span class="related-type mono">{{ rp.type }}</span>
+              <div class="related-card__badge-wrap">
+                <span class="related-icon-box">
+                  <span class="material-symbols-outlined text-[18px]">
+                    {{ getSpecialtyIcon(rp.type, rp.slug) }}
+                  </span>
+                </span>
+                <span class="related-type">{{ rp.type }}</span>
+              </div>
               <span class="material-symbols-outlined related-arrow icon--directional">arrow_forward</span>
             </div>
             <h4 class="related-title" dir="auto">{{ localized(rp.heroTitle || rp.slug, rp.heroTitle || rp.slug) }}</h4>
-              <span class="related-link mono">{{ t('landing.browseInstruments') }} <span class="icon--directional">→</span></span>
+            <p v-if="rp.heroBody" class="related-desc" dir="auto">
+              {{ rp.heroBody.length > 90 ? rp.heroBody.slice(0, 90) + '…' : rp.heroBody }}
+            </p>
+            <div class="related-footer">
+              <span class="related-link">
+                <span>{{ t('landing.browseInstruments') }}</span>
+                <span class="icon--directional">→</span>
+              </span>
+            </div>
           </router-link>
         </div>
       </section>
@@ -270,7 +397,7 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
 
 .lp-hero {
   position: relative;
-  border-radius: var(--wl-radius-xl);
+  border-radius: var(--radius-xl);
   background: linear-gradient(135deg, var(--wl-surface) 0%, var(--wl-surface-soft) 100%);
   border: 1px solid var(--wl-border);
   padding: 2.75rem 2.5rem;
@@ -301,9 +428,13 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
 .lp-hero__inner {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 320px;
   gap: 2.5rem;
   align-items: center;
+}
+
+.lp-hero__copy {
+  min-width: 0;
 }
 
 .lp-eyebrow {
@@ -329,14 +460,8 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
   border-radius: var(--radius-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   border: 1px solid rgba(255, 209, 102, 0.35);
   text-shadow: var(--wl-gold-text-shadow);
-}
-
-.lp-url {
-  color: var(--wl-muted);
-  font-size: 11px;
 }
 
 .lp-title {
@@ -375,83 +500,73 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
   color: var(--wl-muted);
 }
 
-.lp-spec-card {
+/* Facts panel — real CMS + catalogue data, no decorative filler */
+.lp-facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--wl-radius-lg);
-  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1.25rem;
   box-shadow: var(--wl-shadow-card);
 }
 
-.spec-card__header {
+.lp-fact {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-  padding-bottom: 0.9rem;
+  gap: 1rem;
+  padding: 0.85rem 0;
   border-bottom: 1px solid var(--wl-border);
-  margin-bottom: 1rem;
 }
 
-.spec-card__tag {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--wl-primary);
+.lp-fact:last-child {
+  border-bottom: none;
 }
 
-.spec-card__live {
+.lp-fact__label {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 10px;
-  color: var(--wl-gold);
+  gap: 0.4rem;
+  font-size: 11px;
   font-weight: 600;
+  color: var(--color-neutral-600);
+  margin: 0;
 }
 
-.spec-dot {
-  width: 5px;
-  height: 5px;
-  background: var(--wl-gold);
-  border-radius: 50%;
+.lp-fact__icon {
+  font-size: 15px;
+  color: var(--brand);
 }
 
-.spec-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  margin-bottom: 1.15rem;
-}
-
-.spec-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.spec-item__label {
-  font-size: 10px;
-  color: var(--wl-muted);
-  letter-spacing: 0.06em;
-}
-
-.spec-item__val {
+.lp-fact__value {
   font-size: 12.5px;
-  font-weight: 600;
-  color: var(--wl-ink-strong);
-}
-
-.spec-card__footer {
-  padding-top: 0.9rem;
-  border-top: 1px solid var(--wl-border);
-  display: flex;
-  justify-content: space-between;
-  font-size: 9.5px;
-  color: var(--wl-muted);
-}
-
-.spec-brand {
   font-weight: 700;
   color: var(--wl-ink-strong);
+  text-align: end;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* CMS long-form content */
+.lp-content-section {
+  margin-bottom: 3rem;
+}
+
+.lp-content-body {
+  margin-top: 1rem;
+  max-width: 78ch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.lp-content-body p {
+  color: var(--color-neutral-600);
+  font-size: 15px;
+  line-height: 1.7;
 }
 
 /* Products Section */
@@ -496,50 +611,60 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
   margin: 0;
 }
 
-.view-all-btn {
+.btn-view-all {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  background: transparent;
-  border: none;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  background: var(--brand-soft);
+  border: 1px solid var(--border);
+  color: var(--brand);
   font-size: 12px;
-  font-weight: 600;
-  color: var(--wl-primary);
+  font-weight: 700;
   cursor: pointer;
-  transition: color 0.15s;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.view-all-btn:hover {
-  color: var(--wl-primary-hover);
+.btn-view-all:hover {
+  background: var(--brand);
+  color: var(--fg-on-brand);
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.btn-view-all:hover * {
+  color: var(--fg-on-brand);
 }
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: var(--space-6);
 }
 
-
 .product-card {
+  position: relative;
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--wl-radius-lg);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
   box-shadow: var(--wl-shadow-card);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
 }
 
 .product-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--wl-primary);
+  transform: translateY(-4px);
+  border-color: var(--brand);
   box-shadow: var(--wl-shadow-card-hover);
 }
 
 .product-card__media {
-  height: 195px;
+  height: 200px;
   width: 100%;
   position: relative;
   overflow: hidden;
@@ -553,50 +678,67 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.25s ease;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .product-card:hover .product-card__img {
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .sku-chip {
   position: absolute;
-  bottom: 8px;
-  inset-inline-start: 8px;
+  top: 10px;
+  inset-inline-start: 10px;
   font-size: 10px;
-  background: var(--wl-surface);
-  border: 1px solid var(--wl-border);
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-xs);
-  color: var(--wl-ink-strong);
-  font-weight: 600;
-  backdrop-filter: blur(4px);
+  font-weight: 700;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  color: var(--fg-heading);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .product-card__body {
-  padding: 1rem 1.15rem;
+  padding: 1.15rem;
   display: flex;
   flex-direction: column;
   flex: 1;
 }
 
-.product-card__name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--wl-ink-strong);
-  line-height: 1.4;
+.product-card__cat {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.06em;
   margin-bottom: 0.35rem;
 }
 
-.product-card__meta {
-  font-size: 11px;
-  color: var(--wl-muted);
-  margin-bottom: 0.9rem;
+.product-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-heading);
+  line-height: 1.4;
+  margin-bottom: 0.45rem;
 }
 
-.meta-dot {
-  margin: 0 0.25rem;
+.product-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.spec-pill {
+  display: inline-block;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
 
 .product-card__bottom {
@@ -604,127 +746,255 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--wl-border);
+  gap: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.price-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
 .price-val {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--wl-ink-strong);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--fg-heading);
+}
+
+.currency-tag {
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-weight: 600;
 }
 
 .add-quote-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  background: var(--wl-primary);
-  border: 1px solid var(--wl-primary);
-  color: #ffffff !important;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--radius-sm);
+  gap: 0.4rem;
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  color: var(--fg-on-brand) !important;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .add-quote-btn,
 .add-quote-btn * {
-  color: #ffffff !important;
+  color: var(--fg-on-brand) !important;
 }
 
 .add-quote-btn:hover {
-  background: var(--wl-primary-hover);
-  border-color: var(--wl-primary-hover);
-  color: #ffffff !important;
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+  transform: translateY(-1px);
 }
 
 /* Category fallback */
 .cat-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--wl-radius-lg);
-  padding: 1rem;
+  border-radius: var(--radius-lg);
+  padding: 1.15rem;
   text-decoration: none;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
+  gap: 0.75rem;
+  box-shadow: var(--wl-shadow-card);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cat-card:hover { border-color: var(--wl-primary); transform: translateY(-1px); }
-.cat-media { height: 100px; display: grid; place-items: center; background: var(--wl-surface-soft); border-radius: var(--radius-md); overflow: hidden; }
-.cat-media__img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 0.5rem; }
-.cat-media__icon { font-size: 28px; color: var(--wl-muted); }
-.cat-body { display: flex; flex-direction: column; }
-.cat-name { font-size: 13px; font-weight: 600; color: var(--wl-ink-strong); }
-.cat-count { font-size: 10.5px; color: var(--wl-muted); }
+.cat-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-3px);
+  box-shadow: var(--wl-shadow-card-hover);
+}
 
-/* Related Specialties */
+.cat-media {
+  height: 120px;
+  display: grid;
+  place-items: center;
+  background: var(--wl-surface-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.cat-media__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  padding: 0.5rem;
+  transition: transform 0.25s ease;
+}
+
+.cat-card:hover .cat-media__img {
+  transform: scale(1.06);
+}
+
+.cat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cat-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-heading);
+}
+
+.cat-count {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* Related Specialties / Landing Pages */
 .lp-related-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
 .related-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-5);
 }
 
 .related-card {
+  position: relative;
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--wl-radius-lg);
-  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.35rem;
   text-decoration: none;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   box-shadow: var(--wl-shadow-card);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.related-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
 .related-card:hover {
-  border-color: var(--wl-primary);
-  transform: translateY(-2px);
+  border-color: var(--brand);
+  transform: translateY(-4px);
   box-shadow: var(--wl-shadow-card-hover);
+}
+
+.related-card:hover::before {
+  opacity: 1;
 }
 
 .related-card__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
+}
+
+.related-card__badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.related-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.related-card:hover .related-icon-box {
+  background: var(--brand);
+  color: var(--fg-on-brand);
 }
 
 .related-type {
   font-size: 10px;
-  color: var(--wl-muted);
-  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--fg-muted);
   letter-spacing: 0.08em;
+  background: var(--bg-subtle);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
 }
 
 .related-arrow {
-  font-size: 16px;
-  color: var(--wl-primary);
-  transition: transform 0.18s;
+  font-size: 18px;
+  color: var(--fg-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .related-card:hover .related-arrow {
-  transform: translateX(3px);
+  transform: translateX(4px);
+  color: var(--brand);
+}
+
+[dir='rtl'] .related-card:hover .related-arrow {
+  transform: translateX(-4px);
 }
 
 .related-title {
-  font-size: 14.5px;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--wl-ink-strong);
-  margin: 0.2rem 0 auto;
+  color: var(--fg-heading);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.related-desc {
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+}
+
+.related-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .related-link {
-  font-size: 11px;
-  color: var(--wl-primary);
-  font-weight: 600;
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: color 0.15s ease;
+}
+
+.related-card:hover .related-link {
+  color: var(--brand-hover);
 }
 
 @media (max-width: 980px) {
@@ -735,7 +1005,7 @@ const heroBody = computed(() => page.value?.heroBody || t('home.heroSubtitle'))
     grid-template-columns: 1fr;
     gap: 1.75rem;
   }
-  .lp-hero__spec {
+  .lp-facts {
     max-width: 420px;
     width: 100%;
   }

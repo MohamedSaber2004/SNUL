@@ -32,6 +32,11 @@ export type Messages = {
     loadFailed: string
     close: string
     clearInput: string
+    viewMode: string
+    viewGrid: string
+    viewList: string
+    skuLabel: string
+    sortBy: string
     quantity: string
     decreaseQuantity: string
     increaseQuantity: string
@@ -64,6 +69,7 @@ export type Messages = {
     english: string
     arabic: string
     viewAll: string
+    showLess: string
     more: string
     filterByStatus: string
     noResults: string
@@ -254,6 +260,26 @@ export type Messages = {
     statYears: string
     statCerts: string
     statGlobal: string
+    noImageYet: string
+    mediaTag: string
+    mediaCaption: string
+    statFounding: string
+    statStandards: string
+    statStandardsValue: string
+    statCeClass: string
+    statCountriesValue: string
+    storyEyebrow: string
+    pillarsEyebrow: string
+    certsTag: string
+    certsDesc: string
+    oemTag: string
+    oemDescShort: string
+    ctaEyebrow: string
+    ctaTitle: string
+    ctaDesc: string
+    storyFallback1: string
+    storyFallback2: string
+    storyFallback3: string
   }
   auth: {
     brandOverview: string
@@ -1090,6 +1116,10 @@ export type Messages = {
     sortNewest: string
     sortPriceAsc: string
     sortPriceDesc: string
+    sortCountDesc: string
+    sortCountAsc: string
+    sortNameAsc: string
+    sortNameDesc: string
     sortRating: string
     inStockOnly: string
     addToQuote: string
@@ -1459,6 +1489,15 @@ export type Messages = {
     perkNdaDesc: string
     perkProtoTitle: string
     perkProtoDesc: string
+    specsTitle: string
+    specSteel: string
+    specSteelVal: string
+    specInserts: string
+    specInsertsVal: string
+    specPassivation: string
+    specPassivationVal: string
+    specTraceability: string
+    specTraceabilityVal: string
   }
   distributor: {
     title: string
@@ -1528,6 +1567,12 @@ export type Messages = {
     eyebrow: string
     jurisdictions: string
     certsValid: string
+    certCount: string
+    statTotal: string
+    statActive: string
+    statIssuers: string
+    statNextExpiry: string
+    statExpired: string
     docRef: string
     previewPdf: string
     viewDocument: string
@@ -1647,6 +1692,14 @@ export type Messages = {
     featuredProducts: string
     requestQuote: string
     manufactured: string
+    overview: string
+    pageTypeLabel: string
+    categoryLabel: string
+    allCategories: string
+    instrumentsListed: string
+    relatedPagesLabel: string
+    relatedPagesCount: string
+    viewAllCount: string
   }
   footer: {
     brandDesc: string
@@ -1721,9 +1774,32 @@ export type Messages = {
     removedRfq: string
     inRfq: string
     addToRfq: string
+    notFoundTitle: string
+    notFoundDesc: string
+    browseMarketplace: string
+    badgeNew: string
+    badgeFeatured: string
+    badgeCeMarked: string
+    specInventory: string
+    specUnit: string
+    addedToCart: string
+    inspectInstrument: string
+    calibratedGrade: string
+    shareInstrument: string
+    whatsappInquiry: string
+    directQuotation: string
+    priceTray: string
+    additionalNotes: string
+    ratingLabel: string
+    reviewsCount: string
+    noReviewsYet: string
   }
   cart: {
     confirmClear: string
+    signInToCheckout: string
+    signInToCheckoutDesc: string
+    commerceUnavailable: string
+    commerceBlockedAction: string
     confirmRemove: string
     activeCurrency: string
     currenciesSupported: string

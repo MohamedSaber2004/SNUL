@@ -51,6 +51,10 @@ const props = withDefaults(
     minHeight?: string
     emptyTitle?: string
     emptyDescription?: string
+    /** Heading level for the empty-state title. A hard-coded <h3> broke the
+     *  document outline wherever the state renders without an intervening
+     *  <h2> (e.g. the cart empty state, which jumps h1 → h3). */
+    emptyTitleTag?: 'h2' | 'h3' | 'h4'
     emptyIcon?: string
     emptyVariantLegacy?: 'default' | 'search' | 'catalog' | 'neutral'
   }>(),
@@ -83,6 +87,7 @@ const props = withDefaults(
     data: undefined,
     minHeight: undefined,
     emptyTitle: undefined,
+    emptyTitleTag: 'h2',
     emptyDescription: undefined,
     emptyIcon: 'inventory_2',
     emptyVariantLegacy: 'default',
@@ -266,19 +271,24 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
             </div>
           </div>
         </template>
-        <template v-else-if="skeletonType === 'provider-grid'">
+        <template v-else-if="skeletonType === 'provider-avatar-grid'">
           <div class="sk-grid sk-grid--provider" :style="{ gap: skeletonGap }">
-            <div v-for="i in gridCount" :key="i" class="sk-provider" :style="delay(i)">
-              <div class="sk-provider__logo sk" :style="delay(i)">
-                <div class="sk" style="position:absolute;top:10px;inset-inline-end:10px;width:96px;height:20px;border-radius:var(--radius-pill)" :style="delay(i+1)"></div>
+            <div v-for="i in gridCount" :key="i" class="sk-avatar-tile" :style="delay(i)">
+              <div class="sk" style="width:96px;height:96px;border-radius:50%;margin:16px auto 0" :style="delay(i)"></div>
+              <div style="padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px">
+                <div class="sk" style="width:70%;height:14px;border-radius:var(--radius-sm)" :style="delay(i+1)"></div>
+                <div class="sk" style="width:48%;height:11px;border-radius:var(--radius-sm)" :style="delay(i+2)"></div>
               </div>
-              <div class="sk-provider__body">
-                <div class="sk" style="width:84px;height:14px;border-radius:var(--radius-pill)" :style="delay(i+2)"></div>
-                <div class="sk" style="width:86%;height:18px;border-radius:var(--radius-sm);margin-top:8px" :style="delay(i+3)"></div>
-                <div class="sk" style="width:52%;height:12px;border-radius:var(--radius-sm);margin-top:6px" :style="delay(i+4)"></div>
-                <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
-                  <div class="sk" style="width:100%;height:36px;border-radius:var(--radius-md)" :style="delay(i+5)"></div>
-                </div>
+            </div>
+          </div>
+        </template>
+        <template v-else-if="skeletonType === 'provider-grid'">
+          <div class="sk-list sk-list--provrow" :style="{ gap: skeletonGap }">
+            <div v-for="i in gridCount" :key="i" class="sk-prov-row" :style="delay(i)">
+              <div class="sk" style="flex:0 0 96px;height:96px;border-radius:50%" :style="delay(i)"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center">
+                <div class="sk" style="width:36%;height:16px;border-radius:var(--radius-sm)" :style="delay(i+1)"></div>
+                <div class="sk" style="width:52%;height:12px;border-radius:var(--radius-sm)" :style="delay(i+2)"></div>
               </div>
             </div>
           </div>
@@ -297,17 +307,14 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
           </div>
         </template>
         <template v-else-if="skeletonType === 'cert-grid'">
-          <div class="sk-grid sk-grid--cert" :style="{ gap: skeletonGap }">
-            <div v-for="i in gridCount" :key="i" class="sk-cert" :style="delay(i)">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div class="sk" style="width:48px;height:48px;border-radius:12px" :style="delay(i)"></div>
-                <div class="sk" style="width:74px;height:22px;border-radius:var(--radius-pill)" :style="delay(i+1)"></div>
-              </div>
-              <div class="sk" style="width:82%;height:18px;border-radius:var(--radius-sm);margin-top:12px" :style="delay(i+2)"></div>
-              <div class="sk" style="width:58%;height:12px;border-radius:var(--radius-sm);margin-top:6px" :style="delay(i+3)"></div>
-              <div class="sk" style="width:68%;height:11px;border-radius:var(--radius-sm);margin-top:10px" :style="delay(i+4)"></div>
-              <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border)">
-                <div class="sk" style="width:100%;height:34px;border-radius:var(--radius-md)" :style="delay(i+5)"></div>
+          <div class="sk-list sk-list--cert" :style="{ gap: skeletonGap }">
+            <div v-for="i in gridCount" :key="i" class="sk-cert-row" :style="delay(i)">
+              <div class="sk" style="flex:0 0 148px;height:116px;border-radius:var(--radius-md)" :style="delay(i)"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:8px;justify-content:center">
+                <div class="sk" style="width:42%;height:18px;border-radius:var(--radius-sm)" :style="delay(i+1)"></div>
+                <div class="sk" style="width:78%;height:14px;border-radius:var(--radius-sm)" :style="delay(i+2)"></div>
+                <div class="sk" style="width:56%;height:12px;border-radius:var(--radius-sm)" :style="delay(i+3)"></div>
+                <div class="sk" style="width:64%;height:12px;border-radius:var(--radius-sm)" :style="delay(i+4)"></div>
               </div>
             </div>
           </div>
@@ -717,7 +724,7 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
           <span class="empty__code-line" aria-hidden="true"></span>
         </div>
 
-        <h3 v-if="emptyTitle" class="empty__title">{{ emptyTitle }}</h3>
+        <component :is="emptyTitleTag" v-if="emptyTitle" class="empty__title">{{ emptyTitle }}</component>
         <p v-if="emptyDescription" class="empty__desc">{{ emptyDescription }}</p>
 
         <div v-if="$slots.default || actionText" class="empty__actions">
@@ -937,38 +944,6 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
 .sk--badge-left  { inset-inline-start: 10px; }
 .sk--badge-right { inset-inline-end: 10px; }
 
-/* provider */
-.sk-provider {
-  background: #FAFBFC;
-  border: 1px solid var(--sk-border, #E2E6EA);
-  border-radius: var(--radius-card, 8px);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.sk-provider__logo {
-  height: 110px;
-  background: var(--sk-bg, #F2F4F6);
-  border-bottom: 1px solid var(--sk-border, #E2E6EA);
-}
-
-.sk-provider__body {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  background: #FAFBFC;
-}
-.sk-provider__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--sk-border, #E2E6EA);
-  background: var(--sk-bg, #F2F4F6);
-}
-
 /* provider cards (category-providers page mirror) */
 .sk-prov-card {
   display: flex;
@@ -987,29 +962,7 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
   gap: var(--space-2);
 }
 
-/* cert */
-.sk-cert {
-  background: #FAFBFC;
-  border: 1px solid var(--sk-border, #E2E6EA);
-  border-radius: var(--radius-card, 8px);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.sk-cert__media {
-  height: 160px;
-  background: var(--sk-bg, #F2F4F6);
-  border-bottom: 1px solid var(--sk-border, #E2E6EA);
-}
-
-.sk-cert__body {
-  padding: 0.95rem 0.9rem 1.05rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  background: #FAFBFC;
-}
+/* cert — superseded by .sk-cert-row (horizontal dossier list) */
 
 /* grids — centered so partial last rows sit mid-container, not left */
 .sk-grid {
@@ -1023,6 +976,52 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
 .sk-grid--category { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 .sk-grid--provider { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .sk-grid--prov-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Circular provider avatar tiles (home page strip) */
+.sk-avatar-tile {
+  background: #FAFBFC;
+  border: 1px solid var(--sk-border, #E2E6EA);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* Row-list skeletons — mirror the horizontal provider / certificate cards */
+.sk-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.9rem;
+}
+
+.sk-prov-row,
+.sk-cert-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.1rem 1.35rem;
+  background: #FAFBFC;
+  border: 1px solid var(--sk-border, #E2E6EA);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm);
+}
+
+.sk-cert-row {
+  align-items: stretch;
+  padding: 1rem 1.25rem;
+}
+
+@media (max-width: 560px) {
+  .sk-prov-row,
+  .sk-cert-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+  }
+  .sk-prov-row > div,
+  .sk-cert-row > div { width: 100%; }
+  .sk-cert-row > .sk { height: 150px; }
+}
 
 @media (max-width: 1024px) {
   .sk-grid--catalog,
@@ -1125,7 +1124,6 @@ const delay = (i: number) => ({ animationDelay: `${-((i % 16) * 90)}ms` })
   .sk-store-hero__id { flex-direction: row; }
   .sk-store-row { grid-template-columns: 52px minmax(0, 1fr); }
 }
-.sk-grid--cert     { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .sk-grid--stats    { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 .sk-grid--location { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); align-items: start; }
 

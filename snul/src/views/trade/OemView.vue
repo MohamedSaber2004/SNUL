@@ -58,7 +58,7 @@ async function submit() {
   <div class="page-shell oem-view">
     <BackButton fallback="/" variant="minimal" class="mb-3" />
 
-    <nav class="crumb-bar mono" :aria-label="t('common.breadcrumb')">
+    <nav class="crumb-bar" :aria-label="t('common.breadcrumb')">
       <router-link to="/">{{ t('nav.home') }}</router-link>
       <span class="crumb-sep icon--directional">/</span>
       <span class="crumb-active">{{ t('oem.title') }}</span>
@@ -67,63 +67,55 @@ async function submit() {
     <header class="oem-hero">
       <div class="hero-grid">
         <div class="hero-copy">
-          <div class="head-chip mono">
-            <span class="pulse-dot"></span>
+          <div class="head-chip">
+            <span class="pulse-dot" aria-hidden="true"></span>
             <span>{{ t('oem.heroEyebrow') }}</span>
           </div>
           <h1 class="hero-title">{{ t('oem.heroTitle') }}</h1>
           <p class="hero-desc">{{ t('oem.heroBody') }}</p>
 
-          <div class="hero-credentials mono">
+          <div class="hero-credentials">
             <span class="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
             <span>{{ t('oem.builtOn') }}</span>
           </div>
         </div>
 
-        <div class="hud-card" aria-hidden="true">
-          <div class="hud-top">
-            <div class="hud-badge mono">
-              <span class="hud-pulse"></span>
-              <span>{{ locale === 'ar' ? 'وحدة الإنتاج #04' : 'PRODUCTION CELL #04' }}</span>
-            </div>
-            <span class="mono hud-est">{{ locale === 'ar' ? 'تأسست 1994' : 'EST. 1994' }}</span>
+        <dl class="oem-specs">
+          <div class="spec-item">
+            <dt class="spec-key">
+              <span class="material-symbols-outlined spec-icon" aria-hidden="true">texture</span>
+              {{ t('oem.specSteel') }}
+            </dt>
+            <dd class="spec-val">{{ t('oem.specSteelVal') }}</dd>
           </div>
-
-          <div class="hud-specs">
-            <div class="hud-item">
-              <span class="hud-key mono">{{ locale === 'ar' ? 'درجة الفولاذ:' : 'STEEL GRADE:' }}</span>
-              <span class="hud-val mono">AISI 410 / 420 Martensitic</span>
-            </div>
-            <div class="hud-item">
-              <span class="hud-key mono">{{ locale === 'ar' ? 'الحشوات المقواة:' : 'INSERTS:' }}</span>
-              <span class="hud-val mono">Tungsten Carbide (HRC 70+)</span>
-            </div>
-            <div class="hud-item">
-              <span class="hud-key mono">{{ locale === 'ar' ? 'معالجة التخميل:' : 'PASSIVATION:' }}</span>
-              <span class="hud-val mono">ASTM A967 Citric / Nitric</span>
-            </div>
-            <div class="hud-item">
-              <span class="hud-key mono">{{ locale === 'ar' ? 'التتبع الدقيق:' : 'TRACEABILITY:' }}</span>
-              <span class="hud-val mono">GS1-128 / UDI Micro-Laser</span>
-            </div>
+          <div class="spec-item">
+            <dt class="spec-key">
+              <span class="material-symbols-outlined spec-icon" aria-hidden="true">hardware</span>
+              {{ t('oem.specInserts') }}
+            </dt>
+            <dd class="spec-val">{{ t('oem.specInsertsVal') }}</dd>
           </div>
-
-          <div class="hud-meter">
-            <div class="meter-track">
-              <div class="meter-fill" style="width: 88%"></div>
-            </div>
-            <div class="meter-meta mono">
-              <span>{{ locale === 'ar' ? 'الطاقة السنوية: +1.2M أداة جراحية' : 'Annual Capacity: 1.2M+ Surgical Units' }}</span>
-              <span>{{ locale === 'ar' ? '88% مستغل' : '88% Utilized' }}</span>
-            </div>
+          <div class="spec-item">
+            <dt class="spec-key">
+              <span class="material-symbols-outlined spec-icon" aria-hidden="true">sanitize</span>
+              {{ t('oem.specPassivation') }}
+            </dt>
+            <dd class="spec-val">{{ t('oem.specPassivationVal') }}</dd>
           </div>
-        </div>
+          <div class="spec-item">
+            <dt class="spec-key">
+              <span class="material-symbols-outlined spec-icon" aria-hidden="true">qr_code_scanner</span>
+              {{ t('oem.specTraceability') }}
+            </dt>
+            <dd class="spec-val">{{ t('oem.specTraceabilityVal') }}</dd>
+          </div>
+        </dl>
       </div>
     </header>
 
     <section v-if="services.length > 0" class="oem-section">
       <div class="section-head">
-        <div class="head-chip mono">
+        <div class="head-chip">
           <span class="pulse-dot"></span>
           <span>{{ t('oem.serviceEyebrow') }}</span>
         </div>
@@ -139,13 +131,13 @@ async function submit() {
                 {{ ICONS[s.icon] || 'precision_manufacturing' }}
               </span>
             </div>
-            <span class="mono service-line-pill">LINE {{ String(idx + 1).padStart(2, '0') }}</span>
+            <span class="service-line-pill">Line {{ String(idx + 1).padStart(2, '0') }}</span>
           </div>
 
           <h3 class="service-name">{{ locale === 'ar' && s.titleAr ? s.titleAr : s.title }}</h3>
           <p class="service-desc">{{ locale === 'ar' && s.descriptionAr ? s.descriptionAr : s.description }}</p>
 
-          <div class="service-foot mono">
+          <div class="service-foot">
             <span class="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
             <span>ISO 13485 Lot-Validated</span>
           </div>
@@ -156,7 +148,7 @@ async function submit() {
     <section class="oem-section">
       <div class="inquiry-grid">
         <div class="inquiry-copy">
-          <div class="head-chip mono">
+          <div class="head-chip">
             <span class="pulse-dot"></span>
             <span>{{ t('oem.inquiryEyebrow') }}</span>
           </div>
@@ -169,7 +161,7 @@ async function submit() {
             <div class="perk-card">
               <span class="material-symbols-outlined perk-icon">lock</span>
               <div>
-                <strong class="perk-heading mono">{{ t('oem.perkNdaTitle') }}</strong>
+                <strong class="perk-heading">{{ t('oem.perkNdaTitle') }}</strong>
                 <p class="perk-text">{{ t('oem.perkNdaDesc') }}</p>
               </div>
             </div>
@@ -177,7 +169,7 @@ async function submit() {
             <div class="perk-card">
               <span class="material-symbols-outlined perk-icon">token</span>
               <div>
-                <strong class="perk-heading mono">{{ t('oem.perkProtoTitle') }}</strong>
+                <strong class="perk-heading">{{ t('oem.perkProtoTitle') }}</strong>
                 <p class="perk-text">{{ t('oem.perkProtoDesc') }}</p>
               </div>
             </div>
@@ -189,31 +181,31 @@ async function submit() {
             <div class="success-icon-circle">
               <span class="material-symbols-outlined text-[32px]">check</span>
             </div>
-            <h3 class="success-title mono">{{ t('common.success') }}</h3>
+            <h3 class="success-title">{{ t('common.success') }}</h3>
             <p class="success-desc">{{ t('oem.inquirySubmitted') }}</p>
           </div>
 
           <form v-else class="form-stack" @submit.prevent="submit">
             <div class="fields-2col">
               <div class="field-item">
-                <label for="oem-fullname" class="vip-field-label mono">{{ t('oem.fullName') }} *</label>
+                <label for="oem-fullname" class="vip-field-label">{{ t('oem.fullName') }} *</label>
                 <input id="oem-fullname" v-model="form.fullName" class="vip-48-input" required />
               </div>
 
               <div class="field-item">
-                <label for="oem-email" class="vip-field-label mono">{{ t('oem.email') }} *</label>
+                <label for="oem-email" class="vip-field-label">{{ t('oem.email') }} *</label>
                 <input id="oem-email" v-model="form.email" type="email" class="vip-48-input" required />
               </div>
             </div>
 
             <div class="fields-2col">
               <div class="field-item">
-                <label for="oem-company" class="vip-field-label mono">{{ t('oem.companyName') }} *</label>
+                <label for="oem-company" class="vip-field-label">{{ t('oem.companyName') }} *</label>
                 <input id="oem-company" v-model="form.companyName" class="vip-48-input" required />
               </div>
 
               <div class="field-item">
-                <label for="oem-service" class="vip-field-label mono">{{ t('oem.serviceType') }} *</label>
+                <label for="oem-service" class="vip-field-label">{{ t('oem.serviceType') }} *</label>
                 <select id="oem-service" v-model="form.serviceType" class="vip-select" required>
                   <option value="" disabled>{{ t('oem.selectService') }}</option>
                   <option v-for="s in services" :key="s.id" :value="s.title">{{ s.title }}</option>
@@ -223,7 +215,7 @@ async function submit() {
             </div>
 
             <div class="field-item">
-              <label for="oem-message" class="vip-field-label mono">{{ t('oem.message') }} *</label>
+              <label for="oem-message" class="vip-field-label">{{ t('oem.message') }} *</label>
               <textarea
                 id="oem-message"
                 v-model="form.message"
@@ -236,7 +228,7 @@ async function submit() {
 
             <p v-if="error" class="modal-error-banner">{{ error }}</p>
 
-            <button type="submit" :disabled="submitting" class="btn-submit-inquiry mono">
+            <button type="submit" :disabled="submitting" class="btn-submit-inquiry">
               <span class="material-symbols-outlined text-[18px]">send</span>
               <span>{{ submitting ? t('common.loading') : t('oem.submit') }}</span>
             </button>
@@ -357,98 +349,54 @@ async function submit() {
   margin-top: 0.75rem;
 }
 
-.hud-card {
-  background: var(--wl-surface-soft);
-  border: 1px solid var(--wl-border);
-  border-radius: 16px;
-  padding: 1.5rem;
-  color: var(--wl-text);
+/* Real production specifications — replaces the decorative HUD */
+.oem-specs {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.25rem;
+  background: var(--wl-surface);
+  border: 1px solid var(--wl-border);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1.25rem;
   box-shadow: var(--wl-shadow-card);
+  min-width: 300px;
 }
 
-.hud-top {
+.spec-item {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--wl-border);
 }
 
-.hud-badge {
+.spec-item:last-child {
+  border-bottom: none;
+}
+
+.spec-key {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+  margin: 0;
+}
+
+.spec-icon {
+  font-size: 15px;
   color: var(--wl-primary);
-  background: var(--wl-primary-faint);
-  border: 1px solid var(--wl-primary-ring);
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
 }
 
-.hud-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--wl-primary);
-}
-
-.hud-est {
-  font-size: 10.5px;
-  color: var(--wl-muted);
-}
-
-.hud-specs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.hud-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  border-bottom: 1px solid var(--wl-border);
-  padding-bottom: 0.4rem;
-}
-
-.hud-key {
-  color: var(--wl-muted);
+.spec-val {
+  font-size: 12.5px;
   font-weight: 700;
-}
-
-.hud-val {
-  color: var(--wl-text);
-}
-
-.hud-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.meter-track {
-  height: 6px;
-  background: var(--wl-surface);
-  border-radius: 9999px;
-  overflow: hidden;
-  border: 1px solid var(--wl-border);
-}
-
-.meter-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--wl-primary), var(--wl-accent));
-  border-radius: 9999px;
-}
-
-.meter-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10.5px;
-  color: var(--wl-muted);
+  color: var(--wl-ink-strong);
+  text-align: end;
+  margin: 0;
 }
 
 .oem-section {

@@ -59,13 +59,13 @@ const pillars = computed(() => [
     icon: 'public',
     title: t('about.globalTitle'),
     desc: t('about.globalDesc'),
-    badge: locale.value === 'ar' ? '+40 دولة' : '40+ COUNTRIES',
+    badge: t('about.statCountriesValue'),
   },
   {
     icon: 'token',
     title: t('about.oemTitle'),
     desc: t('about.oemDesc'),
-    badge: locale.value === 'ar' ? 'UDI مخصص' : 'CUSTOM UDI',
+    badge: locale.value === 'ar' ? 'UDI مخصص' : 'Custom UDI',
   },
 ])
 </script>
@@ -75,7 +75,7 @@ const pillars = computed(() => [
     <BackButton fallback="/" variant="minimal" class="mb-3" />
 
     <!-- Breadcrumb -->
-    <nav class="crumb-bar mono" :aria-label="t('common.breadcrumb')">
+    <nav class="crumb-bar" :aria-label="t('common.breadcrumb')">
       <router-link to="/">{{ t('nav.home') }}</router-link>
       <span class="crumb-sep icon--directional">/</span>
       <span class="crumb-active">{{ t('nav.about') }}</span>
@@ -91,15 +91,15 @@ const pillars = computed(() => [
       <header class="about-hero">
         <div class="hero-grid">
           <div class="hero-copy">
-            <div class="head-chip mono">
-              <span class="pulse-dot"></span>
+            <div class="head-chip">
+              <span class="pulse-dot" aria-hidden="true"></span>
               <span>{{ t('home.aboutEyebrow') }}</span>
             </div>
 
             <h1 class="hero-title">{{ heroTitle }}</h1>
             <p class="hero-desc">{{ heroBody }}</p>
 
-            <div class="hero-badges mono">
+            <div class="hero-badges">
               <div class="hero-badge">
                 <span class="material-symbols-outlined text-[16px] text-[var(--wl-success)]">verified</span>
                 <span>{{ t('about.statCerts') }}</span>
@@ -120,40 +120,40 @@ const pillars = computed(() => [
               <img v-if="siteLogoUrl" :src="siteLogoUrl" :alt="siteLogoAlt" class="media-img" loading="eager" />
               <div v-else class="no-logo-placeholder">
                 <span class="material-symbols-outlined no-logo-icon">image_not_supported</span>
-                <span class="no-logo-text mono">{{ locale === 'ar' ? 'لم يتم تعيين صورة بعد' : 'No image set yet' }}</span>
+                <span class="no-logo-text">{{ t('about.noImageYet') }}</span>
               </div>
               <div class="media-overlay">
-                <span class="mono media-tag">DIRECT METALLURGY</span>
-                <span class="mono media-badge">{{ yearsOfExperience }} · {{ t('about.statEst') }}</span>
+                <span class="media-tag">{{ t('about.mediaTag') }}</span>
+                <span class="media-badge">{{ yearsOfExperience }} · {{ t('about.statEst') }}</span>
               </div>
             </div>
-            <div class="media-caption mono">
-              <span>Lot-Stamped · High-Chromium Martensitic Alloys</span>
+            <div class="media-caption">
+              <span>{{ t('about.mediaCaption') }}</span>
             </div>
           </div>
         </div>
       </header>
 
       <!-- Stats Strip -->
-      <section class="stats-strip" aria-label="Key Performance Indicators">
+      <section class="stats-strip" :aria-label="t('about.pillarsTitle')">
         <div class="stat-cell">
-          <span class="stat-num mono">1994</span>
-          <span class="stat-lbl mono">{{ t('about.statEst') }}</span>
+          <span class="stat-num">{{ FOUNDING_YEAR }}</span>
+          <span class="stat-lbl">{{ t('about.statFounding') }}</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-cell">
-          <span class="stat-num mono">{{ yearsOfExperience }}</span>
-          <span class="stat-lbl mono">{{ t('about.statYears') }}</span>
+          <span class="stat-num">{{ yearsOfExperience }}</span>
+          <span class="stat-lbl">{{ t('about.statYears') }}</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-cell">
-          <span class="stat-num mono">ISO 13485</span>
-          <span class="stat-lbl mono">CE MDR CLASS IIa</span>
+          <span class="stat-num">{{ t('about.statStandardsValue') }}</span>
+          <span class="stat-lbl">{{ t('about.statCeClass') }}</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-cell">
-          <span class="stat-num mono">40+</span>
-          <span class="stat-lbl mono">{{ t('about.statGlobal') }}</span>
+          <span class="stat-num">{{ t('about.statCountriesValue') }}</span>
+          <span class="stat-lbl">{{ t('about.statGlobal') }}</span>
         </div>
       </section>
 
@@ -161,9 +161,9 @@ const pillars = computed(() => [
       <section class="about-section story-section">
         <div class="story-card">
           <div class="section-head">
-            <div class="head-chip mono">
-              <span class="pulse-dot"></span>
-              <span>HERITAGE & CAPABILITY</span>
+            <div class="head-chip">
+              <span class="pulse-dot" aria-hidden="true"></span>
+              <span>{{ t('about.storyEyebrow') }}</span>
             </div>
             <h2 class="section-title">{{ t('about.ourStory') }}</h2>
           </div>
@@ -175,24 +175,9 @@ const pillars = computed(() => [
               </p>
             </template>
             <template v-else>
-              <p class="story-paragraph">
-                {{ locale === 'ar'
-                  ? 'منذ انطلاق سنول (SNUL)، ارتبط اسمنا بالدقة الجراحية والمصنعية الطبية العالية. بدأنا كمنظومة متخصصة في توفير وتوريد حلول الفولاذ الطبي المقاوم للصدأ، واليوم نوفر أدوات جراحية متقدمة لأكثر من 40 دولة عبر شراكات موثوقة مع المستشفيات والمراكز الجراحية والموزعين المعتمدين.'
-                  : 'Founded in 1994, SNUL was established on a single principle: surgical instruments must be measured in microns and built for lifelong clinical endurance. What began as an artisan medical metallurgy workshop has grown into a state-of-the-art instrument manufacturing and supply enterprise trusted across 40+ countries.'
-                }}
-              </p>
-              <p class="story-paragraph">
-                {{ locale === 'ar'
-                  ? 'يخضع كل طقم وأداة جراحية لرقابة صارمة في كل مرحلة: من اختبار سبائك الفولاذ المارتنزيتي عالي الكروم (AISI 410 و AISI 420)، مروراً بالتفريز الدقيق والمعالجة الحرارية، وصولاً إلى الخمول الكيميائي ASTM A967 والتعقيم النهائي بالليزر وفق معايير التتبع الدولية UDI.'
-                  : 'Every instrument undergoes rigorous multi-point validation: from vacuum-controlled heat treatment and sub-zero cryogenic quenching, to micro-tolerance artisan hand-grinding, ASTM A967 chemical passivation, and GS1-compliant UDI laser engraving.'
-                }}
-              </p>
-              <p class="story-paragraph">
-                {{ locale === 'ar'
-                  ? 'تتيح لنا قدراتنا التصنيعية والتوريدية المباشرة تقديم حلول العلامة الخاصة (OEM) وتوفير أسعار عادلة ومباشرة للمؤسسات الصحية دون وسطاء، مع ملفات توثيق فني واعتمادات كاملة لكل شحنة.'
-                  : 'By maintaining direct control over forging, machining, and cleanroom quality inspection, SNUL eliminates unnecessary intermediary margins, guarantees predictable dispatch timelines, and provides complete regulatory dossiers for every delivery batch.'
-                }}
-              </p>
+              <p class="story-paragraph" dir="auto">{{ t('about.storyFallback1') }}</p>
+              <p class="story-paragraph" dir="auto">{{ t('about.storyFallback2') }}</p>
+              <p class="story-paragraph" dir="auto">{{ t('about.storyFallback3') }}</p>
             </template>
           </div>
         </div>
@@ -201,9 +186,9 @@ const pillars = computed(() => [
       <!-- Clinical Foundations / Pillars Grid -->
       <section class="about-section pillars-section">
         <div class="section-head text-center">
-          <div class="head-chip mono">
-            <span class="pulse-dot"></span>
-            <span>MANUFACTURING STANDARDS</span>
+          <div class="head-chip">
+            <span class="pulse-dot" aria-hidden="true"></span>
+            <span>{{ t('about.pillarsEyebrow') }}</span>
           </div>
           <h2 class="section-title">{{ t('about.pillarsTitle') }}</h2>
         </div>
@@ -214,7 +199,7 @@ const pillars = computed(() => [
               <div class="pillar-icon-box">
                 <span class="material-symbols-outlined text-[24px]">{{ pillar.icon }}</span>
               </div>
-              <span class="mono pillar-badge">{{ pillar.badge }}</span>
+              <span class="pillar-badge">{{ pillar.badge }}</span>
             </div>
             <h3 class="pillar-title">{{ pillar.title }}</h3>
             <p class="pillar-desc">{{ pillar.desc }}</p>
@@ -230,16 +215,11 @@ const pillars = computed(() => [
             <div class="cross-card__head">
               <span class="material-symbols-outlined cross-icon text-emerald-500">verified</span>
               <div>
-                <span class="mono cross-tag">REGULATORY DOSSIERS</span>
+                <span class="cross-tag">{{ t('about.certsTag') }}</span>
                 <h3 class="cross-title">{{ t('about.exploreCerts') }}</h3>
               </div>
             </div>
-            <p class="cross-desc">
-              {{ locale === 'ar'
-                ? 'اطّلع على شهادات الجودة الرسمية، تراخيص ISO 13485:2016، ومطابقة التوجيهات الأوروبية CE MDR للأجهزة الطبية.'
-                : 'Inspect active regulatory dossiers, ISO 13485:2016 certificates, and CE MDR declarations of conformity.'
-              }}
-            </p>
+            <p class="cross-desc">{{ t('about.certsDesc') }}</p>
             <router-link to="/certifications" class="cross-link">
               <span>{{ t('about.exploreCerts') }}</span>
               <span class="icon--directional">→</span>
@@ -251,16 +231,11 @@ const pillars = computed(() => [
             <div class="cross-card__head">
               <span class="material-symbols-outlined cross-icon text-indigo-500">precision_manufacturing</span>
               <div>
-                <span class="mono cross-tag">{{ locale === 'ar' ? 'تشغيل معادن مخصص' : 'CUSTOM METALLURGY' }}</span>
+                <span class="cross-tag">{{ t('about.oemTag') }}</span>
                 <h3 class="cross-title">{{ t('about.exploreOem') }}</h3>
               </div>
             </div>
-            <p class="cross-desc">
-              {{ locale === 'ar'
-                ? 'خدمات التصنيع المخصص، النقش بالليزر بعلامتك التجارية، وتجهيز أطقم جراحية كاملة بعبوات معقمة جاهزة.'
-                : 'Custom private-label production, tailored CAD geometry, tungsten carbide brazing, and customized laser etching.'
-              }}
-            </p>
+            <p class="cross-desc">{{ t('about.oemDescShort') }}</p>
             <router-link to="/oem" class="cross-link">
               <span>{{ t('about.exploreOem') }}</span>
               <span class="icon--directional">→</span>
@@ -273,19 +248,9 @@ const pillars = computed(() => [
       <section class="about-cta-banner">
         <div class="cta-inner">
           <div class="cta-copy">
-            <span class="mono cta-eyebrow">{{ locale === 'ar' ? 'التوريد والتوزيع الطبي السريري' : 'CLINICAL PROCUREMENT & DISTRIBUTION' }}</span>
-            <h2 class="cta-title">
-              {{ locale === 'ar'
-                ? 'جاهز لتجهيز منشأتك الصحية بأدوات جراحية معتمدة؟'
-                : 'Ready to equip your surgical theatre or clinical distribution network?'
-              }}
-            </h2>
-            <p class="cta-desc">
-              {{ locale === 'ar'
-                ? 'تصفح الكتالوج الكامل، اطلب تسعيراً مؤسسياً فورياً، أو تواصل مع مكتب التجارة والتوريد الجراحي.'
-                : 'Browse our complete instrument catalog, submit an institutional RFQ, or speak directly with our clinical supply desk.'
-              }}
-            </p>
+            <span class="cta-eyebrow">{{ t('about.ctaEyebrow') }}</span>
+            <h2 class="cta-title">{{ t('about.ctaTitle') }}</h2>
+            <p class="cta-desc">{{ t('about.ctaDesc') }}</p>
           </div>
 
           <div class="cta-actions">

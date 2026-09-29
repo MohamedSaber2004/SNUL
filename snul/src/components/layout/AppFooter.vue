@@ -20,13 +20,13 @@ const { logoUrl: footerLogoUrl, altText: footerLogoAlt } = useSiteLogo()
         <p class="brand-desc">{{ t('footer.brandDesc') }}</p>
         <div class="footer-badges mono">
           <span class="footer-badge">ISO 13485:2016</span>
-          <span class="footer-badge">CE MDR CLASS IIa</span>
-          <span class="footer-badge">UDI LOT-TRACEABLE</span>
+        <span class="footer-badge">CE MDR Class IIa</span>
+        <span class="footer-badge">UDI lot-traceable</span>
         </div>
       </div>
 
       <div class="footer__col">
-        <h4>{{ t('footer.product') }}</h4>
+        <h3>{{ t('footer.product') }}</h3>
         <router-link to="/marketplace" class="footer__link">{{ t('nav.marketplace') }}</router-link>
         <router-link to="/providers" class="footer__link">{{ t('nav.providers') }}</router-link>
         <router-link to="/certifications" class="footer__link">{{ t('nav.certifications') }}</router-link>
@@ -34,7 +34,7 @@ const { logoUrl: footerLogoUrl, altText: footerLogoAlt } = useSiteLogo()
       </div>
 
       <div v-if="isAuthed" class="footer__col">
-        <h4>{{ t('footer.account') }}</h4>
+        <h3>{{ t('footer.account') }}</h3>
         <router-link to="/account" class="footer__link">{{ t('nav.account') }}</router-link>
         <router-link to="/account/rfqs" class="footer__link">{{ t('sales.rfqTitle') }}</router-link>
         <router-link to="/account/quotes" class="footer__link">{{ t('sales.quoteTitle') }}</router-link>
@@ -43,7 +43,7 @@ const { logoUrl: footerLogoUrl, altText: footerLogoAlt } = useSiteLogo()
       </div>
 
       <div class="footer__col">
-        <h4>{{ t('footer.support') }}</h4>
+        <h3>{{ t('footer.support') }}</h3>
         <router-link to="/about" class="footer__link">{{ t('nav.about') }}</router-link>
         <router-link to="/help" class="footer__link">{{ t('footer.helpCenter') }}</router-link>
         <router-link v-if="isAuthed" to="/help/my-tickets" class="footer__link">{{ t('help.myTickets') }}</router-link>

@@ -57,13 +57,51 @@ watch(searchQuery, () => {
 const goPage = (p: number) => {
   page.value = p
 }
+
+const NOW = new Date()
+
+const activeCount = computed(() => certs.value.filter((c) => c.isActive).length)
+const expiredCount = computed(
+  () => certs.value.filter((c) => c.expiryDate && new Date(c.expiryDate) < NOW).length,
+)
+const issuerCount = computed(
+  () => new Set(certs.value.map((c) => c.issuer).filter(Boolean)).size,
+)
+const nearestExpiry = computed(() => {
+  const future = certs.value
+    .filter((c) => c.expiryDate && new Date(c.expiryDate) >= NOW)
+    .map((c) => new Date(c.expiryDate as string))
+    .sort((a, b) => a.getTime() - b.getTime())
+  return future[0] ?? null
+})
+
+const formatDate = (d: Date) =>
+  d.toLocaleDateString(locale.value === 'ar' ? 'ar-EG' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+  })
+
+const certStats = computed(() => [
+  { icon: 'workspace_premium', label: t('certifications.statTotal'), value: t('certifications.certCount', { count: certs.value.length }) },
+  { icon: 'verified', label: t('certifications.statActive'), value: t('certifications.certCount', { count: activeCount.value }) },
+  { icon: 'account_balance', label: t('certifications.statIssuers'), value: t('certifications.certCount', { count: issuerCount.value }) },
+  {
+    icon: expiredCount.value ? 'gpp_bad' : 'event_available',
+    label: t('certifications.statNextExpiry'),
+    value: nearestExpiry.value
+      ? formatDate(nearestExpiry.value)
+      : expiredCount.value
+        ? t('certifications.statExpired', { count: expiredCount.value })
+        : '—',
+  },
+])
 </script>
 
 <template>
   <div class="page-shell cert-view">
     <BackButton fallback="/" variant="minimal" class="mb-3" />
 
-    <nav class="crumb-bar mono" :aria-label="t('common.breadcrumb')">
+    <nav class="crumb-bar" :aria-label="t('common.breadcrumb')">
       <router-link to="/">{{ t('nav.home') }}</router-link>
       <span class="crumb-sep icon--directional">/</span>
       <span class="crumb-active">{{ t('certifications.title') }}</span>
@@ -72,47 +110,40 @@ const goPage = (p: number) => {
     <header class="cert-hero">
       <div class="hero-top-row">
         <div class="hero-text-zone">
-          <div class="head-chip mono">
-            <span class="pulse-dot"></span>
+          <div class="head-chip">
+            <span class="pulse-dot" aria-hidden="true"></span>
             <span>{{ t('certifications.eyebrow') }}</span>
           </div>
           <h1 class="hero-title">{{ t('certifications.qualityTitle') }}</h1>
           <p class="hero-desc">{{ t('certifications.qualitySubtitle') }}</p>
 
           <div v-if="certs.length" class="standards-pills-wrap">
-            <span v-for="c in certs" :key="c.id" class="standard-pill mono">{{ c.certificateNumber || c.title }}</span>
+            <span v-for="c in certs" :key="c.id" class="standard-pill">{{ c.certificateNumber || c.title }}</span>
           </div>
         </div>
 
-        <div class="telemetry-box" :aria-label="t('certifications.title')">
-          <div class="telemetry-cell">
-            <span class="telemetry-val mono">{{ certs.length ? '100%' : '—' }}</span>
-            <span class="telemetry-lbl mono">{{ certs.length ? 'VALIDITY RATE' : 'AWAITING DOSSIER' }}</span>
+        <dl class="cert-stats">
+          <div v-for="stat in certStats" :key="stat.label" class="cert-stat">
+            <dt class="cert-stat__label">
+              <span class="material-symbols-outlined cert-stat__icon" aria-hidden="true">{{ stat.icon }}</span>
+              {{ stat.label }}
+            </dt>
+            <dd class="cert-stat__value">{{ stat.value }}</dd>
           </div>
-          <div class="telemetry-div"></div>
-          <div class="telemetry-cell">
-            <span class="telemetry-val mono">AUDITED</span>
-            <span class="telemetry-lbl mono">NOTIFIED BODY</span>
-          </div>
-          <div class="telemetry-div"></div>
-          <div class="telemetry-cell">
-            <span class="telemetry-val mono">AISI 420</span>
-            <span class="telemetry-lbl mono">STEEL ALLOY SPEC</span>
-          </div>
-        </div>
+        </dl>
       </div>
     </header>
 
     <section class="cert-section">
       <div class="section-head">
         <div>
-          <div class="head-chip mono">
-            <span class="pulse-dot"></span>
+          <div class="head-chip">
+            <span class="pulse-dot" aria-hidden="true"></span>
             <span>{{ t('certifications.jurisdictions', { count: certs.length }) }}</span>
           </div>
           <h2 class="section-title">{{ t('certifications.certsTitle') }}</h2>
         </div>
-        <span class="mono count-badge">{{ t('certifications.certsValid', { count: certs.length }) }}</span>
+        <span class="count-badge">{{ t('certifications.certsValid', { count: certs.length }) }}</span>
       </div>
 
       <div class="cert-toolbar">
@@ -146,7 +177,7 @@ const goPage = (p: number) => {
             <div class="cert-card__media" :class="{ 'cert-card__media--pdf': isPdfDoc(c.certificationImageName) }">
               <div v-if="isPdfDoc(c.certificationImageName)" class="cert-pdf-placeholder">
                 <span class="material-symbols-outlined cert-pdf-icon">picture_as_pdf</span>
-                <span class="mono text-xs">{{ c.certificateNumber || 'PDF Document' }}</span>
+                <span class="text-xs">{{ c.certificateNumber || 'PDF Document' }}</span>
               </div>
               <AppImage
                 v-else
@@ -161,27 +192,27 @@ const goPage = (p: number) => {
             <div class="cert-card__body">
 
             <h3 class="cert-title-text">{{ c.title }}</h3>
-            <div class="ref-badge mono">
+            <div class="ref-badge">
               <span class="ref-label">{{ t('certifications.docRef') }}</span>
               <strong class="ref-num">{{ c.certificateNumber }}</strong>
             </div>
 
             <dl class="cert-meta-list">
               <div class="meta-item">
-                <dt class="mono">{{ t('certifications.issuedTo') }}:</dt>
+                <dt>{{ t('certifications.issuedTo') }}:</dt>
                 <dd>{{ c.issuedTo }}</dd>
               </div>
               <div class="meta-item">
-                <dt class="mono">{{ t('certifications.issuer') }}:</dt>
+                <dt>{{ t('certifications.issuer') }}:</dt>
                 <dd>{{ c.issuer }}</dd>
               </div>
               <div class="meta-item">
-                <dt class="mono">{{ t('certifications.issueDate') }}:</dt>
-                <dd class="mono">{{ new Date(c.issueDate).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US') }}</dd>
+                <dt>{{ t('certifications.issueDate') }}:</dt>
+                <dd>{{ formatDate(new Date(c.issueDate)) }}</dd>
               </div>
               <div v-if="c.expiryDate" class="meta-item">
-                <dt class="mono">{{ t('certifications.expiryDate') }}:</dt>
-                <dd class="mono">{{ new Date(c.expiryDate).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US') }}</dd>
+                <dt>{{ t('certifications.expiryDate') }}:</dt>
+                <dd>{{ formatDate(new Date(c.expiryDate)) }}</dd>
               </div>
             </dl>
             </div>
@@ -374,40 +405,54 @@ const goPage = (p: number) => {
   letter-spacing: 0.04em;
 }
 
-.telemetry-box {
-  display: flex;
-  align-items: center;
-  background: var(--wl-surface-soft);
-  border: 1px solid var(--wl-border);
-  border-radius: 14px;
-  padding: 1.25rem 1.75rem;
-  gap: 1.5rem;
-}
-
-.telemetry-cell {
+/* Real certification stats — computed from the loaded dossier */
+.cert-stats {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 0.25rem;
+  background: var(--wl-surface);
+  border: 1px solid var(--wl-border);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1.25rem;
+  box-shadow: var(--wl-shadow-card);
+  min-width: 260px;
 }
 
-.telemetry-val {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: var(--wl-ink-strong);
+.cert-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--wl-border);
 }
 
-.telemetry-lbl {
-  font-size: 9.5px;
+.cert-stat:last-child {
+  border-bottom: none;
+}
+
+.cert-stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-neutral-600);
+  margin: 0;
+}
+
+.cert-stat__icon {
+  font-size: 15px;
+  color: var(--wl-primary);
+}
+
+.cert-stat__value {
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--wl-muted);
-  letter-spacing: 0.06em;
-}
-
-.telemetry-div {
-  width: 1px;
-  height: 36px;
-  background: var(--wl-border);
+  color: var(--wl-ink-strong);
+  text-align: end;
+  margin: 0;
 }
 
 .cert-section {
@@ -444,39 +489,46 @@ const goPage = (p: number) => {
 }
 
 .cert-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
 
+/* Certificate cards — horizontal row: thumbnail left, dossier details right */
 .cert-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: 16px;
-  padding: 0;
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
   box-shadow: var(--wl-shadow-card);
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 1.25rem;
   transition: all 0.2s ease;
 }
 
 .cert-card:hover {
   border-color: var(--wl-primary);
   box-shadow: var(--wl-shadow-card-hover);
-  transform: translateY(-2px);
+  transform: translateX(3px);
 }
+
+[dir='rtl'] .cert-card:hover { transform: translateX(-3px); }
 
 .cert-card__media {
   position: relative;
-  width: 100%;
-  height: 180px;
+  flex: 0 0 148px;
+  width: 148px;
+  align-self: stretch;
+  min-height: 116px;
   background: var(--wl-surface-soft, #f1f5f9);
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid var(--wl-border);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--wl-border);
 }
 
 .cert-card__img {
@@ -501,15 +553,16 @@ const goPage = (p: number) => {
 }
 
 .cert-pdf-icon {
-  font-size: 3rem;
+  font-size: 2.5rem;
 }
 
 .cert-card__body {
-  padding: 1.25rem 1.5rem;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.7rem;
   flex: 1;
+  min-width: 0;
 }
 
 .cert-card-actions {
@@ -543,13 +596,17 @@ const goPage = (p: number) => {
 }
 
 .cert-meta-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 2rem;
   margin: 0;
   padding-top: 0.65rem;
   border-top: 1px solid var(--wl-border);
   font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .cert-meta-list { grid-template-columns: 1fr; }
 }
 
 .meta-item {
@@ -566,6 +623,7 @@ const goPage = (p: number) => {
   color: var(--wl-ink-strong);
   margin: 0;
   font-weight: 500;
+  text-align: end;
 }
 
 @media (max-width: 640px) {
@@ -576,19 +634,21 @@ const goPage = (p: number) => {
   .hero-top-row {
     gap: 1.25rem;
   }
-  .telemetry-box {
-    flex: 1 1 100%;
+  .cert-stats {
     min-width: 0;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    gap: 0.85rem;
-    padding: 1rem;
+    width: 100%;
+    padding: 0.5rem 1rem;
   }
-  .telemetry-val {
-    font-size: 1.15rem;
+  .cert-card {
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 0.9rem 1rem;
   }
-  .cert-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .cert-card__media {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 150px;
+    min-height: 0;
   }
   .section-head {
     gap: 0.75rem;

@@ -29,6 +29,23 @@ const targetCurrency = ref<string>(
 // cart are never computed here — only the backend cart-total quote is shown.
 const unconvertedIds = ref<string[]>([])
 
+/** Ceiling for made-to-order lines. A product with `stock === 0` has no stock
+ *  cap at all (it is built to order), so `stock` must never be used as a
+ *  maximum there — clamping against 0 is what used to put quantity 0 in the
+ *  cart and freeze its stepper. */
+const MADE_TO_ORDER_MAX_QTY = 9999
+
+/** Largest quantity the cart will accept for a product. Exported so the cart
+ *  line stepper gets the same ceiling `add`/`setQty` enforce. */
+function maxQtyFor(product: ProductDto): number {
+  return product.stock > 0 ? product.stock : MADE_TO_ORDER_MAX_QTY
+}
+
+/** Clamp a requested quantity into [minOrderQty, maxQtyFor]. */
+function clampQty(product: ProductDto, qty: number): number {
+  return Math.min(maxQtyFor(product), Math.max(product.minOrderQty, qty))
+}
+
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(CART_KEY) || localStorage.getItem(LEGACY_CART_KEY)
@@ -195,10 +212,20 @@ async function clearServerCart(): Promise<void> {
 
 export interface ServerCartLineTotal {
   productId: string
+  /** The unit price that is actually billed: the converted amount rounded UP to
+   *  a whole currency unit. This single figure backs the per-unit display, the
+   *  line total, the order payload and the RFQ payload — nothing rounds again
+   *  downstream, so a printed "unit × qty" can never disagree with its total. */
   convertedUnit: number
+  /** Alias of `convertedUnit`, kept for existing consumers. */
+  ceiledUnit: number
+  /** Un-rounded, un-converted catalogue price in the product's own currency. */
+  nativeUnit: number
+  nativeCurrency: string
+  /** Quantity captured when this line was priced. */
+  quantity: number
   lineTotal: number
   rate: number
-  ceiledUnit: number
 }
 
 export interface ServerCartTotal {
@@ -254,12 +281,18 @@ async function refreshServerTotal(force = false): Promise<void> {
         const fromCurrency = (item.product.currencyCode || item.product.currency || 'USD').toUpperCase()
         const nativePrice = Number(item.product.price)
         const converted = await services.exchangeRateService.convert(nativePrice, fromCurrency, tCur)
+        // Round exactly once, here. Everything downstream (displayed unit price,
+        // line total, order payload, RFQ payload) reads this same number.
+        const unit = Math.ceil(converted.convertedAmount)
         return {
           productId: item.product.id,
-          convertedUnit: converted.convertedAmount,
-          lineTotal: converted.convertedAmount * item.quantity,
+          convertedUnit: unit,
+          ceiledUnit: unit,
+          nativeUnit: nativePrice,
+          nativeCurrency: fromCurrency,
+          quantity: item.quantity,
+          lineTotal: unit * item.quantity,
           rate: converted.rate,
-          ceiledUnit: Math.ceil(nativePrice),
         }
       }),
     )
@@ -311,9 +344,19 @@ watch(
 
 export function useCart() {
   const count = computed(() => items.value.reduce((s, i) => s + i.quantity, 0))
+  /** Number of distinct cart lines. `count` is the SUM OF QUANTITIES, so it
+   *  must not be used for "N products" / "N items" labels. */
+  const lineCount = computed(() => items.value.length)
   /** Backend ceiling total — null until the backend quotes the cart. */
   const displayTotal = computed(() => serverTotal.value?.total ?? null)
   const displaySubtotal = computed(() => serverTotal.value?.subtotal ?? null)
+  /** A total is only trustworthy once the cart is quoted AND no line failed
+   *  currency conversion. Anything else means the buyer would be committing to
+   *  a figure nobody can compute. */
+  const totalKnown = computed(() => serverTotal.value != null && unconvertedIds.value.length === 0)
+  const totalPending = computed(() => items.value.length > 0 && !totalKnown.value)
+  /** Gate for every CTA that spends money (order / RFQ). */
+  const canSubmitOrder = computed(() => items.value.length > 0 && totalKnown.value)
   const currency = computed(() => targetCurrency.value)
   const currencyCode = computed(() => targetCurrency.value)
   const displayCurrency = computed(() => targetCurrency.value)
@@ -348,9 +391,9 @@ export function useCart() {
     const qtyClamped = Math.max(product.minOrderQty, qty)
     const existing = items.value.find(i => i.product.id === product.id)
     if (existing) {
-      existing.quantity = Math.min(product.stock, existing.quantity + qtyClamped)
+      existing.quantity = clampQty(product, existing.quantity + qtyClamped)
     } else {
-      items.value.push({ product, quantity: Math.min(qtyClamped, product.stock) })
+      items.value.push({ product, quantity: clampQty(product, qtyClamped) })
     }
     persist()
   }
@@ -359,7 +402,7 @@ export function useCart() {
     const it = items.value.find(i => i.product.id === productId)
     if (!it) return
     if (qty <= 0) remove(productId)
-    else { it.quantity = Math.min(it.product.stock, Math.max(it.product.minOrderQty, qty)); persist() }
+    else { it.quantity = clampQty(it.product, qty); persist() }
   }
 
   function remove(productId: string) {
@@ -387,7 +430,9 @@ export function useCart() {
     return items.value.map(i => ({
       productId: i.product.id,
       quantity: i.quantity,
-      unitPrice: Math.ceil(getServerLine(i.product.id)?.convertedUnit ?? i.product.price),
+      // `convertedUnit` is already rounded up at the quote; rounding again here
+      // is what used to make the order price disagree with the displayed one.
+      unitPrice: getServerLine(i.product.id)?.convertedUnit ?? Math.ceil(getNativePrice(i.product)),
     }))
   }
 
@@ -397,7 +442,8 @@ export function useCart() {
       const tCur = targetCurrency.value.toUpperCase()
       const nativePrice = Number(i.product.price)
       const serverLine = getServerLine(i.product.id)
-      const convertedUnit = serverLine?.convertedUnit != null ? Math.ceil(serverLine.convertedUnit) : nativePrice
+      // Same figure the cart displays and the order payload sends.
+      const convertedUnit = serverLine?.convertedUnit ?? Math.ceil(nativePrice)
       const rate = serverLine?.rate
 
       // Encode base + requested price and the rate into the note: the API
@@ -461,5 +507,7 @@ export function useCart() {
     }
   }
 
-  return { items, count, displayTotal, displaySubtotal, serverTotal, serverTotalLoading, targetCurrency, unconvertedIds, currency, currencyCode, displayCurrency, quoteNote, serverCartId, add, setQty, remove, clear, setNote, toOrderItems, toRfqItems, toDisplayCurrency, toOrderItemsFromQuote, getNativePrice, getServerLine, setTargetCurrency, refreshServerTotal, currencyOf, getSessionId, syncToServer, clearServerCart }
+  return { items, count, lineCount, displayTotal, displaySubtotal, totalKnown, totalPending, canSubmitOrder, serverTotal, serverTotalLoading, targetCurrency, unconvertedIds, currency, currencyCode, displayCurrency, quoteNote, serverCartId, add, setQty, remove, clear, setNote, toOrderItems, toRfqItems, toDisplayCurrency, toOrderItemsFromQuote, getNativePrice, getServerLine, maxQtyFor, resolveCurrencyId, setTargetCurrency, refreshServerTotal, currencyOf, getSessionId, syncToServer, clearServerCart }
 }
+
+export { maxQtyFor, MADE_TO_ORDER_MAX_QTY }

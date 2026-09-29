@@ -353,7 +353,7 @@ const navigateToOemFromModal = () => {
     <header class="hero">
       <div class="hero__inner">
         <div class="hero__copy anim-fade-in-up">
-          <h1>{{ heroTitleText }}<em v-if="heroAccentText"> {{ heroAccentText }}</em></h1>
+          <h1>{{ heroTitleText }}<em v-if="heroAccentText">{{ ' ' + heroAccentText }}</em></h1>
           <p v-if="heroSubtitleText">{{ heroSubtitleText }}</p>
           <div class="hero__search">
             <form class="hero__search-bar" @submit.prevent="goSearch">
@@ -375,7 +375,7 @@ const navigateToOemFromModal = () => {
           <img v-if="siteLogoUrl" :src="siteLogoUrl" :alt="siteLogoAlt" width="420" height="220" loading="eager" />
           <div v-else class="no-logo-placeholder">
             <span class="material-symbols-outlined no-logo-icon">image_not_supported</span>
-            <span class="no-logo-text mono">{{ locale === 'ar' ? 'لم يتم تعيين صورة بعد' : 'No image set yet' }}</span>
+                <span class="no-logo-text">{{ t('about.noImageYet') }}</span>
           </div>
         </div>
       </div>
@@ -386,7 +386,7 @@ const navigateToOemFromModal = () => {
       <div class="section__inner">
         <div class="section-head">
           <div>
-            <div class="mono section__eyebrow">{{ t('home.mostSellingEyebrow') }}</div>
+            <div class="section__eyebrow">{{ t('home.mostSellingEyebrow') }}</div>
             <h2 id="most-selling-heading" class="section-title">{{ t('home.mostSellingTitle') }}</h2>
           </div>
           <router-link to="/most-selling" class="btn btn-ghost btn-sm view-all-btn">
@@ -419,15 +419,15 @@ const navigateToOemFromModal = () => {
                   fit="cover"
                   class="product-card__img"
                 />
-                <span v-if="p.isNew" class="mono product-card__badge">{{ t('home.newBadge') }}</span>
-                <span v-if="p.stock > 0" class="mono product-card__stock product-card__stock--in">{{ t('catalog.inStock') }}</span>
-                <span v-else class="mono product-card__stock product-card__stock--out">{{ t('catalog.madeToOrder') }}</span>
+                <span v-if="p.isNew" class="product-card__badge">{{ t('home.newBadge') }}</span>
+                <span v-if="p.stock > 0" class="product-card__stock product-card__stock--in">{{ t('catalog.inStock') }}</span>
+                <span v-else class="product-card__stock product-card__stock--out">{{ t('catalog.madeToOrder') }}</span>
               </div>
               <div class="product-card__body">
-                <div class="mono product-card__category" dir="auto">{{ localized(p.categoryNameEn, p.categoryNameAr) }}</div>
+                <div class="product-card__category" dir="auto">{{ localized(p.categoryNameEn, p.categoryNameAr) }}</div>
                 <h3 class="product-card__title" dir="auto">{{ localized(p.nameEn, p.nameAr) }}</h3>
-                <div class="mono product-card__meta-alt" dir="auto">{{ locale === 'en' ? p.nameAr : p.nameEn }}</div>
-                <div class="mono product-card__meta">{{ p.companyName || p.manufacturerEn || 'SNUL Surgical' }} · CE Certified</div>
+                <div class="product-card__meta-alt" dir="auto">{{ locale === 'en' ? p.nameAr : p.nameEn }}</div>
+                <div class="product-card__meta">{{ p.companyName || p.manufacturerEn || 'SNUL Surgical' }} · CE Certified</div>
                 <div class="product-card__foot">
                   <strong class="mono-num">{{ formatPrice(p.price, locale) }} {{ p.currencySymbol || '$' }}</strong>
                   <button class="btn btn-primary btn-sm btn-quote-white" type="button" @click.stop="handleAddToQuote(p.id)">
@@ -447,7 +447,7 @@ const navigateToOemFromModal = () => {
   <div class="section__inner">
     <div class="section-head">
       <div>
-        <div class="mono section__eyebrow">{{ t('home.ourProvidersEyebrow') }}</div>
+        <div class="section__eyebrow">{{ t('home.ourProvidersEyebrow') }}</div>
         <h2 id="providers-heading" class="section-title">{{ t('home.ourProviders') }}</h2>
       </div>
       <router-link to="/providers" class="btn btn-ghost btn-sm view-all-btn">
@@ -457,7 +457,7 @@ const navigateToOemFromModal = () => {
     </div>
     <p class="section-desc">{{ t('home.ourProvidersSubtitle') }}</p>
 
-    <DataState :loading="loading && !providers.length" :empty="!providers.length && !loading" skeleton-type="provider-grid" :skeleton-count="4" min-height="250px">
+    <DataState :loading="loading && !providers.length" :empty="!providers.length && !loading" skeleton-type="provider-avatar-grid" :skeleton-count="4" min-height="250px">
       <div class="providers-strip-grid">
         <article
           v-for="(p, i) in providers"
@@ -472,35 +472,36 @@ const navigateToOemFromModal = () => {
             :aria-expanded="expandedProviderId === p.id"
             @click="toggleProvider(p.id)"
           >
-            <div class="provider-tile__logo">
-              <AppImage
-                :src="p.imageName"
-                placeholder-type="company"
-                :alt="p.name"
-                fit="contain"
-                height="70px"
-              />
+            <div class="provider-tile__avatar">
+              <div class="provider-tile__logo">
+                <AppImage
+                  :src="p.imageName"
+                  placeholder-type="company"
+                  :alt="p.name"
+                  fit="contain"
+                  height="70px"
+                />
+              </div>
+              <span class="provider-tile__badge" :title="t('home.verifiedSupplier')">
+                <span class="material-symbols-outlined" aria-hidden="true">verified</span>
+                <span class="sr-only">{{ t('home.verifiedSupplier') }}</span>
+              </span>
             </div>
             <div class="provider-tile__info">
-              <div class="provider-tile__top">
-                <span class="provider-tile__badge mono">
-                  {{ t('home.verifiedSupplier') }}
-                </span>
-              </div>
               <h3 class="provider-tile__name" dir="auto">{{ p.name }}</h3>
-              <div v-if="p.countryNameEn || p.countryNameAr" class="provider-tile__country mono">
-                <span class="material-symbols-outlined text-[13px] text-teal-600">public</span>
+              <div v-if="p.countryNameEn || p.countryNameAr" class="provider-tile__country">
+                <span class="material-symbols-outlined" aria-hidden="true">public</span>
                 <span>{{ localized(p.countryNameEn, p.countryNameAr) }}</span>
               </div>
             </div>
           </button>
           <div class="provider-tile__foot">
-            <span class="mono provider-tile__count">{{ t('provider.providerProducts') }}</span>
+            <span class="provider-tile__count">{{ t('provider.providerProducts') }}</span>
             <span class="material-symbols-outlined provider-tile__chev" :class="{ 'is-open': expandedProviderId === p.id }" aria-hidden="true">expand_more</span>
           </div>
           <div v-if="expandedProviderId === p.id" class="provider-tile__products">
             <div v-if="tileLoading" role="status"><SkeletonLoader type="provider-cards" :count="2" /></div>
-            <div v-else-if="!tileProducts.length" class="mono provider-tile__empty">{{ t('provider.noProviderProducts') }}</div>
+            <div v-else-if="!tileProducts.length" class="provider-tile__empty">{{ t('provider.noProviderProducts') }}</div>
             <div v-else class="provider-mini-grid">
               <button
                 v-for="prod in tileProducts"
@@ -511,21 +512,21 @@ const navigateToOemFromModal = () => {
               >
                 <AppImage
                   :src="prod.imageName"
-  placeholder-type="product"
-  :alt="localized(prod.nameEn, prod.nameAr)"
+                  placeholder-type="product"
+                  :alt="localized(prod.nameEn, prod.nameAr)"
                   fit="contain"
                   class="provider-mini__img"
                 />
                 <span class="provider-mini__name" dir="auto">{{ localized(prod.nameEn, prod.nameAr) }}</span>
-                <span class="provider-mini__price mono-num">{{ formatPrice(prod.price, locale) }} {{ prod.currencySymbol || '$' }}</span>
+                <span class="provider-mini__price">{{ formatPrice(prod.price, locale) }} {{ prod.currencySymbol || '$' }}</span>
               </button>
             </div>
             <div v-if="tileTotalPages > 1" class="provider-pager">
               <button type="button" class="page-btn" :disabled="tileProductPage <= 1" @click="tileProductPage--">‹</button>
-              <span class="mono provider-pager__num">{{ tileProductPage }} / {{ tileTotalPages }}</span>
+              <span class="provider-pager__num">{{ tileProductPage }} / {{ tileTotalPages }}</span>
               <button type="button" class="page-btn" :disabled="tileProductPage >= tileTotalPages" @click="tileProductPage++">›</button>
             </div>
-            <router-link :to="{ name: 'provider-storefront', params: { id: p.id } }" class="provider-viewall mono">
+            <router-link :to="{ name: 'provider-storefront', params: { id: p.id } }" class="provider-viewall">
               <span>{{ t('provider.viewCatalog') }}</span>
               <span class="icon--directional">→</span>
             </router-link>
@@ -540,7 +541,7 @@ const navigateToOemFromModal = () => {
       <div class="section__inner">
         <div class="section-head">
           <div>
-            <div class="mono section__eyebrow">{{ t('home.browseByCategory') }}</div>
+            <div class="section__eyebrow">{{ t('home.browseByCategory') }}</div>
             <h2 id="cat-heading" class="section-title">{{ t('marketplace.categoriesTitle') }}</h2>
           </div>
           <router-link to="/categories" class="btn btn-ghost btn-sm view-all-btn">
@@ -562,8 +563,8 @@ const navigateToOemFromModal = () => {
               </div>
               <div class="cat-body">
                 <div class="cat-name" dir="auto">{{ localized(c.nameEn, c.nameAr) }}</div>
-                <div class="cat-name-alt mono" dir="auto">{{ locale === 'en' ? c.nameAr : c.nameEn }}</div>
-                <span class="mono cat-count">{{ t('landing.instrumentsCount', { count: c.productCount ?? 0 }) }}</span>
+                <div class="cat-name-alt" dir="auto">{{ locale === 'en' ? c.nameAr : c.nameEn }}</div>
+                <span class="cat-count">{{ t('landing.instrumentsCount', { count: c.productCount ?? 0 }) }}</span>
               </div>
             </router-link>
           </div>
@@ -577,7 +578,7 @@ const navigateToOemFromModal = () => {
             :aria-label="t('common.prev')"
             @click="catPage--"
           >‹</button>
-          <span class="mono cat-pager__num">{{ catPage }} / {{ catTotalPages }}</span>
+          <span class="cat-pager__num">{{ catPage }} / {{ catTotalPages }}</span>
           <button
             type="button"
             class="page-btn"
@@ -593,7 +594,7 @@ const navigateToOemFromModal = () => {
       <div class="section__inner">
         <div class="section-head">
           <div>
-            <div class="mono section__eyebrow">{{ t('home.browseClinicalSpecialty') }}</div>
+            <div class="section__eyebrow">{{ t('home.browseClinicalSpecialty') }}</div>
             <h2 id="specialty-heading" class="section-title">{{ t('marketplace.filterBySpecialty') }}</h2>
           </div>
         </div>
@@ -607,7 +608,7 @@ const navigateToOemFromModal = () => {
                 id="specialty-filter-input"
                 v-model="specialtyQuery"
                 type="search"
-                class="cat-filter__input mono"
+                class="cat-filter__input"
                 :placeholder="t('home.searchSpecialties')"
                 autocomplete="off"
                 aria-describedby="specialty-filter-count"
@@ -622,7 +623,7 @@ const navigateToOemFromModal = () => {
                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
               </button>
             </div>
-            <p id="specialty-filter-count" class="cat-filter__count mono" role="status" aria-live="polite">
+            <p id="specialty-filter-count" class="cat-filter__count" role="status" aria-live="polite">
               {{ t('home.specialtiesFound', { shown: visibleSpecialties.length, total: matchingSpecialties.length }) }}
             </p>
           </div>
@@ -675,7 +676,7 @@ const navigateToOemFromModal = () => {
           <div v-if="explorerCatId" class="cat-explorer__body">
             <div class="cat-explorer__head">
               <h3 class="cat-explorer__title">{{ t('provider.providersInCategory') }}</h3>
-              <router-link :to="{ name: 'category-providers', params: { id: explorerCatId } }" class="provider-viewall mono">
+              <router-link :to="{ name: 'category-providers', params: { id: explorerCatId } }" class="provider-viewall">
                 <span>{{ t('common.viewAll') }}</span>
                 <span class="icon--directional">→</span>
               </router-link>
@@ -684,7 +685,7 @@ const navigateToOemFromModal = () => {
               <div v-if="explorerProvidersLoading" key="loading" role="status" aria-label="Loading providers" class="cat-explorer__loading-wrap">
                 <SkeletonLoader type="provider-cards" :count="5" />
               </div>
-              <div v-else-if="!explorerProviders.length" key="empty" class="mono cat-explorer__empty">
+              <div v-else-if="!explorerProviders.length" key="empty" class="cat-explorer__empty">
                 {{ t('provider.noProvidersHere') }}
               </div>
               <div v-else key="content">
@@ -706,15 +707,15 @@ const navigateToOemFromModal = () => {
                       class="cat-provider__img"
                     />
                     <span class="cat-provider__name" dir="auto">{{ prov.name }}</span>
-                    <span v-if="prov.countryNameEn || prov.countryNameAr" class="cat-provider__country mono">
+                    <span v-if="prov.countryNameEn || prov.countryNameAr" class="cat-provider__country">
                       {{ localized(prov.countryNameEn, prov.countryNameAr) }}
                     </span>
-                    <span class="cat-provider__cta mono">{{ t('provider.viewCatalog') }} <span class="icon--directional">→</span></span>
+                    <span class="cat-provider__cta">{{ t('provider.viewCatalog') }} <span class="icon--directional">→</span></span>
                   </button>
                 </div>
                 <div v-if="explorerProviderTotalPages > 1" class="provider-pager">
                   <button type="button" class="page-btn" :disabled="explorerProviderPage <= 1" @click="explorerProviderPage--">‹</button>
-                  <span class="mono provider-pager__num">{{ explorerProviderPage }} / {{ explorerProviderTotalPages }}</span>
+                  <span class="provider-pager__num">{{ explorerProviderPage }} / {{ explorerProviderTotalPages }}</span>
                   <button type="button" class="page-btn" :disabled="explorerProviderPage >= explorerProviderTotalPages" @click="explorerProviderPage++">›</button>
                 </div>
               </div>
@@ -728,7 +729,7 @@ const navigateToOemFromModal = () => {
       <div class="section__inner">
         <div class="section-head">
           <div>
-            <div class="mono section__eyebrow">{{ t('certifications.eyebrow') }}</div>
+            <div class="section__eyebrow">{{ t('certifications.eyebrow') }}</div>
             <h2 id="home-certs-heading" class="section-title">{{ t('certifications.certsTitle') }}</h2>
           </div>
           <router-link to="/certifications" class="btn btn-ghost btn-sm view-all-btn">
@@ -754,11 +755,14 @@ const navigateToOemFromModal = () => {
                   aspect-ratio="16/10"
                   fit="contain"
                 />
+                <span class="home-cert-card__seal" aria-hidden="true">
+                  <span class="material-symbols-outlined">workspace_premium</span>
+                </span>
               </div>
               <div class="home-cert-card__body">
-                <div class="home-cert-card__badge mono">{{ c.certificateNumber || 'ISO / CE' }}</div>
+                <div class="home-cert-card__badge">{{ c.certificateNumber || 'ISO / CE' }}</div>
                 <h3 class="home-cert-card__title">{{ c.title }}</h3>
-                <div class="home-cert-card__meta mono">{{ c.issuer }}</div>
+                <div class="home-cert-card__meta">{{ c.issuer }}</div>
               </div>
             </article>
           </div>
@@ -768,7 +772,7 @@ const navigateToOemFromModal = () => {
     <section v-reveal class="section section--about" aria-labelledby="about-heading">
       <div class="section__inner about-grid">
         <div class="about-content">
-          <div class="mono section__eyebrow">{{ t('home.aboutEyebrow') }}</div>
+          <div class="section__eyebrow">{{ t('home.aboutEyebrow') }}</div>
           <h2 id="about-heading" class="section-title">{{ aboutPage?.heroTitle || t('home.aboutTitle') }}</h2>
           <p class="about-body">{{ aboutPage?.heroBody || t('home.aboutBody') }}</p>
           <p v-if="aboutPage?.contentBlock" class="about-body">{{ aboutPage.contentBlock }}</p>
@@ -789,7 +793,7 @@ const navigateToOemFromModal = () => {
           <img v-if="siteLogoUrl" :src="siteLogoUrl" :alt="siteLogoAlt" class="about-media__img" loading="lazy" />
           <div v-else class="no-logo-placeholder no-logo-placeholder--about">
             <span class="material-symbols-outlined no-logo-icon">image_not_supported</span>
-            <span class="no-logo-text mono">{{ locale === 'ar' ? 'لم يتم تعيين صورة بعد' : 'No image set yet' }}</span>
+                <span class="no-logo-text">{{ t('about.noImageYet') }}</span>
           </div>
         </div>
       </div>
@@ -801,7 +805,7 @@ const navigateToOemFromModal = () => {
         <h3 class="success-head">{{ t('home.quoteSubmittedTitle') }}</h3>
         <p class="success-body">{{ t('home.quoteSubmittedDesc') }}</p>
 
-        <div class="ref-ticket-box mono">
+        <div class="ref-ticket-box">
           <span class="ref-label">{{ t('home.quoteReference') }}:</span>
           <span class="ref-code">{{ priceRefId }}</span>
         </div>
@@ -810,7 +814,7 @@ const navigateToOemFromModal = () => {
           <BaseButton variant="primary" block @click="priceModalOpen = false">
             {{ t('common.close') }}
           </BaseButton>
-          <button type="button" class="btn-link-oem mono" @click="navigateToOemFromModal">
+          <button type="button" class="btn-link-oem" @click="navigateToOemFromModal">
             <span>{{ t('home.quoteOemLink') }}</span>
             <span class="icon--directional">→</span>
           </button>
@@ -822,29 +826,29 @@ const navigateToOemFromModal = () => {
 
         <div class="modal-2col">
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('auth.fullName') }} *</label>
+            <label class="modal-lbl">{{ t('auth.fullName') }} *</label>
             <input v-model="priceForm.fullName" class="modal-inp" required :placeholder="t('auth.fullName')" />
           </div>
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('auth.email') }} *</label>
+            <label class="modal-lbl">{{ t('auth.email') }} *</label>
             <input v-model="priceForm.email" type="email" class="modal-inp" required :placeholder="t('auth.email')" />
           </div>
         </div>
 
         <div class="modal-2col">
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('home.quoteOrganization') }}</label>
+            <label class="modal-lbl">{{ t('home.quoteOrganization') }}</label>
             <input v-model="priceForm.organization" class="modal-inp" :placeholder="t('home.quoteOrganization')" />
           </div>
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('auth.phoneNumber') }}</label>
+            <label class="modal-lbl">{{ t('auth.phoneNumber') }}</label>
             <input v-model="priceForm.phone" class="modal-inp" :placeholder="t('auth.phoneNumber')" />
           </div>
         </div>
 
         <div class="modal-2col">
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('home.quoteSpecialty') }}</label>
+            <label class="modal-lbl">{{ t('home.quoteSpecialty') }}</label>
             <select v-model="priceForm.specialty" class="modal-sel">
               <option value="General Surgery">General Surgery</option>
               <option value="Cardiovascular & Thoracic">Cardiovascular &amp; Thoracic</option>
@@ -857,7 +861,7 @@ const navigateToOemFromModal = () => {
             </select>
           </div>
           <div class="modal-field">
-            <label class="modal-lbl mono">{{ t('home.quoteTimeline') }}</label>
+            <label class="modal-lbl">{{ t('home.quoteTimeline') }}</label>
             <select v-model="priceForm.timeline" class="modal-sel">
               <option value="immediate">{{ t('home.quoteTimelineImmediate') }}</option>
               <option value="standard">{{ t('home.quoteTimelineStandard') }}</option>
@@ -867,7 +871,7 @@ const navigateToOemFromModal = () => {
         </div>
 
         <div class="modal-field">
-          <label class="modal-lbl mono">{{ t('home.quoteDetails') }} *</label>
+          <label class="modal-lbl">{{ t('home.quoteDetails') }} *</label>
           <textarea
             v-model="priceForm.details"
             rows="3"
@@ -877,7 +881,7 @@ const navigateToOemFromModal = () => {
           ></textarea>
         </div>
 
-        <div class="modal-oem-callout mono">
+        <div class="modal-oem-callout">
           <span>{{ t('home.quoteOemPrompt') }}</span>
           <a href="/oem" class="oem-callout-link" @click.prevent="navigateToOemFromModal">
             {{ t('home.quoteOemLink') }} <span class="icon--directional">→</span>
@@ -1432,10 +1436,11 @@ const navigateToOemFromModal = () => {
   }
 }
 
+/* Provider tiles — circular "avatar" presentation, centred column flow */
 .provider-tile {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1468,41 +1473,66 @@ const navigateToOemFromModal = () => {
   pointer-events: none;
 }
 
+.provider-tile__avatar {
+  position: relative;
+  align-self: center;
+  margin-top: var(--space-4);
+}
+
+/* The circle itself */
 .provider-tile__logo {
-  height: 110px;
-  background: linear-gradient(180deg, var(--wl-surface-soft) 0%, var(--wl-surface) 100%);
-  border-bottom: 1px solid var(--wl-border);
-  padding: var(--space-3);
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--wl-surface-soft);
+  border: 2px solid var(--wl-border);
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.provider-tile:hover .provider-tile__logo {
+  border-color: var(--brand);
+  transform: scale(1.04);
+}
+
+.provider-tile__logo :deep(img) {
+  border-radius: 50%;
+}
+
+/* Verified tick rides the lower-right edge of the circle */
+.provider-tile__badge {
+  position: absolute;
+  inset-block-end: -2px;
+  inset-inline-end: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--wl-success);
+  border: 2px solid var(--wl-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.provider-tile__badge .material-symbols-outlined {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .provider-tile__info {
-  padding: var(--space-3) var(--space-3);
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   flex: 1;
   gap: var(--space-1);
-}
-
-.provider-tile__top {
-  display: flex;
-  align-items: center;
-}
-
-.provider-tile__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: var(--step--1);
-  font-weight: 700;
-  color: var(--wl-success);
-  background: var(--wl-success-soft);
-  border: 1px solid var(--color-success-100);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  letter-spacing: 0.02em;
 }
 
 .provider-tile__name {
@@ -1523,19 +1553,24 @@ const navigateToOemFromModal = () => {
   gap: 0.35rem;
   font-size: var(--step--1);
   color: var(--fg-muted);
-  margin-top: auto;
-  padding-top: 0.25rem;
+}
+
+.provider-tile__country .material-symbols-outlined {
+  font-size: 13px;
+  color: var(--wl-success);
 }
 
 /* Provider tile expansion (products per provider, paginated) */
 .provider-tile__main {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
   background: none;
   border: 0;
   padding: 0;
   margin: 0;
-  text-align: start;
+  text-align: center;
   cursor: pointer;
   color: inherit;
   font: inherit;
@@ -1758,7 +1793,6 @@ const navigateToOemFromModal = () => {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
   margin-bottom: 0.25rem;
 }
 .cat-explorer__heading {
@@ -2030,13 +2064,33 @@ const navigateToOemFromModal = () => {
 }
 
 .home-cert-card__media {
+  position: relative;
   height: 160px;
   background: var(--wl-surface-soft);
   overflow: hidden;
 }
 
+/* Round seal sits inside the media band — the card clips overflow, so it
+   must not straddle the boundary. */
+.home-cert-card__seal {
+  position: absolute;
+  inset-block-end: 10px;
+  inset-inline-start: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wl-primary);
+  color: #fff;
+  border: 2px solid var(--wl-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+.home-cert-card__seal .material-symbols-outlined { font-size: 16px; line-height: 1; }
+
 .home-cert-card__body {
-  padding: var(--space-4);
+  padding: 1.05rem var(--space-4) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -2069,7 +2123,6 @@ const navigateToOemFromModal = () => {
   color: var(--brand);
   font-weight: 700;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   margin-bottom: var(--space-1);
   text-shadow: none;
 }
@@ -2086,15 +2139,15 @@ const navigateToOemFromModal = () => {
 /* Categories Grid */
 .cat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(1rem, 2vw, 1.35rem);
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(0.75rem, 1.4vw, 1rem);
   max-width: var(--wl-max-width);
   margin-inline: auto;
 }
 
 @media (max-width: 1100px) {
   .cat-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -2111,22 +2164,22 @@ const navigateToOemFromModal = () => {
   }
 }
 
-/* ── Cat card — pure white, clean borders & border-radius only ── */
+/* ── Cat card — horizontal row, white surface, clean borders ── */
+/* Category cards — compact horizontal row: thumbnail leading, text trailing */
 .cat-card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 0.875rem;
+  border-radius: var(--radius-lg);
+  padding: 0.7rem;
   text-decoration: none;
   box-shadow: 0 1px 3px rgba(15, 61, 86, 0.04), 0 3px 8px rgba(15, 61, 86, 0.02);
   transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s ease,
               box-shadow 0.24s ease;
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  position: relative;
-  overflow: hidden;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .cat-card:hover {
@@ -2146,17 +2199,18 @@ const navigateToOemFromModal = () => {
   box-shadow: none;
 }
 
-/* ── Cat card image area ── */
+/* ── Cat card image area — square leading thumbnail ── */
 .cat-media {
-  width: 100%;
-  height: 114px;
-  border-radius: 12px;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-md);
   background: linear-gradient(180deg, var(--bg-app) 0%, var(--bg-subtle) 100%);
   border: 1px solid var(--bg-subtle);
   overflow: hidden;
   display: grid;
   place-items: center;
-  padding: 0.65rem;
+  padding: 0.3rem;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -2181,19 +2235,23 @@ const navigateToOemFromModal = () => {
   color: var(--wl-muted);
 }
 
-/* ── Cat card body ── */
+/* ── Cat card body — truncating text column ── */
 .cat-body {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.15rem 0.2rem 0.25rem;
+  gap: 0.15rem;
+  padding: 0;
+  min-width: 0;
+  flex: 1;
 }
 
 .cat-name {
-  font-size: 0.975rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--fg-heading);
-  line-height: 1.35;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2207,6 +2265,9 @@ const navigateToOemFromModal = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* hug the text so an RTL name does not stretch across the whole row */
+  align-self: flex-start;
+  max-width: 100%;
 }
 
 .cat-count {
@@ -2352,7 +2413,6 @@ const navigateToOemFromModal = () => {
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--wl-on-primary);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
@@ -2547,7 +2607,6 @@ const navigateToOemFromModal = () => {
 .modal-lbl {
   font-size: var(--step--1);
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--wl-ink-soft);
   text-align: start;
@@ -2816,7 +2875,11 @@ const navigateToOemFromModal = () => {
 }
 .home .hero::after { height: 4px; background: linear-gradient(90deg, var(--brand), var(--accent)); opacity: 1; }
 .home .hero__inner { max-width: 1320px; min-height: min(700px, 76vh); grid-template-columns: minmax(0, 1.05fr) minmax(360px, .8fr); gap: clamp(2rem, 6vw, 7rem); padding-block: clamp(3.5rem, 8vw, 7rem); }
-.home .hero__copy { position: relative; z-index: 1; }
+.home .hero__copy { position: relative; z-index: 1; min-width: 0; }
+/* Long unbreakable CMS strings must never widen the hero grid track and get
+   clipped by the hero's overflow-x: hidden. */
+.home .hero h1,
+.home .hero p { overflow-wrap: break-word; word-break: normal; }
 .home .hero h1 { max-width: 760px; margin-top: .45rem; font-size: clamp(2.65rem, 5.8vw, 5.7rem); line-height: .98; letter-spacing: -.065em; text-shadow: 0 2px 28px rgba(7,21,38,.60); }
 /* Headline colors (white base + cyan accent) live in the single source-of-truth block above. */
 .home .hero p { max-width: 620px; font-size: clamp(1rem, 1.4vw, 1.2rem); line-height: 1.75; letter-spacing: .006em; }
@@ -2923,30 +2986,38 @@ const navigateToOemFromModal = () => {
 .home .about-media { border-radius: 1rem; overflow: hidden; box-shadow: var(--platform-shadow); background: white; }
 .home .about-media__img { mix-blend-mode: multiply; }
 
+/* Circular avatar must survive the platform overrides above — keep it a circle */
 .home .provider-tile__logo {
-  height: 142px;
-  min-height: 142px;
-  width: 100%;
-  min-width: 0;
-  padding: 1rem;
+  width: 96px;
+  min-width: 96px;
+  height: 96px;
+  min-height: 96px;
+  padding: 10px;
+  border-radius: 50%;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(145deg, var(--platform-aqua), var(--bg-surface));
+  background: var(--bg-subtle);
+  border: 2px solid var(--platform-border);
+}
+.home .provider-tile__avatar {
+  align-self: center;
+  margin-top: var(--space-4);
 }
 .home .provider-tile__logo :deep(.app-image-placeholder) {
   inset: 0;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-radius: 50%;
 }
 .home .provider-tile__logo :deep(.placeholder-icon-badge) {
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
 }
-.home .provider-tile__logo :deep(.placeholder-icon) { font-size: 26px; }
+.home .provider-tile__logo :deep(.placeholder-icon) { font-size: 22px; }
 .home .provider-tile__logo :deep(.placeholder-text) { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2981,7 +3052,6 @@ const navigateToOemFromModal = () => {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 .home .section--category .section-title,
 .home .section--clinical .section-title,

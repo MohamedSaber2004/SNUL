@@ -22,6 +22,7 @@ export type SkeletonType =
   | 'ticket'
   | 'track'
   | 'cert-grid'
+  | 'provider-avatar-grid'
   | 'address-grid'
   | 'order-detail'
   | 'order-confirm'
@@ -40,6 +41,7 @@ const SKELETON_DEFAULTS: Record<SkeletonType, number> = {
   'provider-grid': 4,
   'provider-cards': 4,
   'cert-grid': 4,
+  'provider-avatar-grid': 4,
   'help-grid': 6,
   'address-grid': 4,
   // Preserves SkeletonLoader effective default of 6 for these six call sites (no explicit :count today).

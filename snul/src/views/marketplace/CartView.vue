@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { t, locale } from '../../i18n'
 import { useCart } from '../../composables/useCart'
@@ -24,22 +24,43 @@ const {
   serverTotalLoading,
   targetCurrency,
   count,
+  lineCount,
   quoteNote,
   unconvertedIds,
+  totalPending,
+  canSubmitOrder,
   setQty,
   remove,
   clear,
   setNote,
   toRfqItems,
   getServerLine,
+  maxQtyFor,
   setTargetCurrency,
   refreshServerTotal,
 } = useCart()
 const localized = (en?: string | null, ar?: string | null) =>
   locale.value === 'ar' ? ar || en || '' : en || ar || ''
-/** Backend totals only — no client-side math. Null until quoted. */
+
+/** Guests can browse and fill a cart, but /checkout is auth-gated — a
+ *  "Place Order" button that dead-ends on the login wall misleads them.
+ *  Derived from `user` (a ref) rather than the `isAuthenticated` getter so the
+ *  branch flips live when a guest signs in without a page reload. */
+const isGuest = computed(() => !authService.user.value)
+/** Staff, sales and provider accounts are redirected away from /cart and
+ *  /checkout by the router, so their commerce CTAs are a dead end too. */
+const canUseCommerce = computed(() => authService.isClient.value)
+
+/** Integer thousands formatting; null renders as "…" (total not quoted yet). */
 const fmtQuote = (v: number | null) =>
   v == null ? '…' : v.toLocaleString(locale.value === 'ar' ? 'ar-EG' : 'en-US')
+
+/** Reason the CTAs are blocked, for aria-describedby / title on both of them. */
+const blockedReason = computed(() =>
+  unconvertedIds.value.length
+    ? t('cart.commerceBlockedAction')
+    : '',
+)
 
 const submittingRfq = ref(false)
 const availableCurrencies = ref<CurrencyDto[]>([])
@@ -47,6 +68,8 @@ const addressCurrencies = ref<string[]>([])
 const showCurrencyDropdown = ref(false)
 const currencySearchQuery = ref('')
 const currencyDropdownEl = ref<HTMLElement | null>(null)
+const currencyTriggerEl = ref<HTMLButtonElement | null>(null)
+const currencySearchInput = ref<HTMLInputElement | null>(null)
 const isRefreshingRates = ref(false)
 
 // Total price negotiation state
@@ -73,13 +96,43 @@ const distinctBaseCurrencies = computed(() => {
 function onDocumentClick(e: MouseEvent) {
   if (showCurrencyDropdown.value && currencyDropdownEl.value) {
     if (!currencyDropdownEl.value.contains(e.target as Node)) {
-      showCurrencyDropdown.value = false
+      closeCurrencyDropdown()
     }
   }
 }
 
+/** Escape closes the popover and hands focus back to the trigger that opened
+ *  it, so keyboard users are never stranded behind an invisible overlay. */
+function onDocumentKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && showCurrencyDropdown.value) {
+    e.stopPropagation()
+    closeCurrencyDropdown()
+  }
+}
+
+/** The `autofocus` attribute is ignored on dynamically inserted nodes, so the
+ *  search field is focused imperatively once the popover exists. */
+async function openCurrencyDropdown() {
+  showCurrencyDropdown.value = true
+  await nextTick()
+  currencySearchInput.value?.focus()
+}
+
+function closeCurrencyDropdown() {
+  if (!showCurrencyDropdown.value) return
+  showCurrencyDropdown.value = false
+  currencySearchQuery.value = ''
+  currencyTriggerEl.value?.focus()
+}
+
+function toggleCurrencyDropdown() {
+  if (showCurrencyDropdown.value) closeCurrencyDropdown()
+  else void openCurrencyDropdown()
+}
+
 onMounted(async () => {
   document.addEventListener('click', onDocumentClick)
+  document.addEventListener('keydown', onDocumentKeydown)
   try {
     await services.marketplaceService.loadCurrencies()
     availableCurrencies.value = services.marketplaceService.currencies.value.filter((c) => c.isActive)
@@ -118,6 +171,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('keydown', onDocumentKeydown)
 })
 
 const activeCurrencyMeta = computed(() => {
@@ -242,8 +296,7 @@ const filteredAllCurrencies = computed(() => {
 
 function selectCurrency(code: string) {
   setTargetCurrency(code)
-  showCurrencyDropdown.value = false
-  currencySearchQuery.value = ''
+  closeCurrencyDropdown()
 }
 
 async function handleRefreshRates() {
@@ -260,8 +313,17 @@ async function handleRefreshRates() {
   }
 }
 
+/** Sign-in is the only way past this gate, so send guests straight there. */
+const goLogin = () => {
+  void router.push({ name: 'login', query: { redirect: '/checkout' } })
+}
+
 const goCheckout = () => {
-  if (!items.value.length) return
+  if (!items.value.length || !canSubmitOrder.value) return
+  if (isGuest.value) {
+    goLogin()
+    return
+  }
   void router.push({ name: 'checkout' })
 }
 
@@ -291,9 +353,19 @@ const handleRemove = async (id: string) => {
 
 const submitRfq = async () => {
   if (!items.value.length || submittingRfq.value) return
-  if (!authService.isAuthenticated) {
-    toastService.info(t('sales.submitRfq'))
+  if (!canUseCommerce.value) {
+    // Staff / sales / provider accounts are redirected away from /cart and
+    // /checkout, so the CTAs are hidden for them and this is defence in depth.
+    return
+  }
+  if (isGuest.value) {
+    // The button label is not a reason — say why the RFQ cannot be sent.
+    toastService.info(t('auth.loginSubtitle'))
     void router.push({ name: 'login', query: { redirect: '/cart' } })
+    return
+  }
+  if (!canSubmitOrder.value) {
+    toastService.info(blockedReason.value || t('common.error'))
     return
   }
   if (enableNegotiation.value) {
@@ -470,10 +542,14 @@ const submitRfq = async () => {
               <!-- More Currencies Dropdown Trigger -->
               <div ref="currencyDropdownEl" class="more-curr-wrapper">
                 <button
+                  ref="currencyTriggerEl"
                   type="button"
                   class="curr-pill curr-pill--more mono"
                   :class="{ 'is-open': showCurrencyDropdown }"
-                  @click.stop="showCurrencyDropdown = !showCurrencyDropdown"
+                  aria-haspopup="dialog"
+                  :aria-expanded="showCurrencyDropdown"
+                  aria-controls="curr-dropdown-popover"
+                  @click.stop="toggleCurrencyDropdown"
                 >
                   <span class="material-symbols-outlined text-[16px]">travel_explore</span>
                   <span>{{ t('cart.selectOtherCurrency') }}</span>
@@ -481,20 +557,32 @@ const submitRfq = async () => {
                 </button>
 
                 <!-- Popover -->
-                <div v-if="showCurrencyDropdown" class="curr-dropdown-popover" @click.stop>
+                <div
+                  v-if="showCurrencyDropdown"
+                  id="curr-dropdown-popover"
+                  class="curr-dropdown-popover"
+                  role="dialog"
+                  aria-modal="false"
+                  :aria-label="t('cart.selectOtherCurrency')"
+                  @click.stop
+                >
                   <div class="popover-search-wrap">
                     <span class="material-symbols-outlined search-ic">search</span>
+                    <!-- `autofocus` is ignored on dynamically inserted nodes, so
+                         openCurrencyDropdown() calls .focus() after nextTick. -->
                     <input
+                      ref="currencySearchInput"
                       v-model="currencySearchQuery"
                       type="text"
                       class="popover-search-input mono"
                       :placeholder="t('cart.searchCurrency')"
-                      autofocus
+                      :aria-label="t('cart.searchCurrency')"
                     />
                     <button
                       v-if="currencySearchQuery"
                       type="button"
                       class="clear-search-btn"
+                      :aria-label="t('common.cancel')"
                       @click="currencySearchQuery = ''"
                     >
                       <span class="material-symbols-outlined text-[14px]">close</span>
@@ -525,7 +613,7 @@ const submitRfq = async () => {
                       </div>
                       <span class="p-code-badge">{{ c.code }}</span>
                       <span class="p-sym-badge">{{ c.symbol }}</span>
-                      <span v-if="c.code === targetCurrency" class="material-symbols-outlined text-[16px] text-indigo-600">check_circle</span>
+                      <span v-if="c.code === targetCurrency" class="material-symbols-outlined text-[16px] check-icon-lg">check_circle</span>
                     </button>
                   </div>
 
@@ -537,9 +625,21 @@ const submitRfq = async () => {
             </div>
           </div>
         </section>
-        <div v-if="unconvertedIds.length" class="rate-warn mono" role="alert">
-          <span class="material-symbols-outlined text-[14px]">warning</span>
-          <span>{{ t('cart.rateUnavailable', { count: unconvertedIds.length }) }}</span>
+        <!-- An unconverted line has no price, so the cart total is unknown: this
+             is a hard error (not a warning) and it blocks both CTAs until the
+             buyer retries and every line prices. -->
+        <div v-if="unconvertedIds.length" id="rate-error" class="rate-error mono" role="alert">
+          <span class="material-symbols-outlined text-[15px]">error</span>
+          <span class="rate-error__text">{{ t('cart.commerceBlockedAction') }}</span>
+          <button
+            type="button"
+            class="rate-retry-btn mono"
+            :disabled="isRefreshingRates"
+            @click="handleRefreshRates"
+          >
+            <span class="material-symbols-outlined text-[15px]" :class="{ 'spin-anim': isRefreshingRates }">refresh</span>
+            <span>{{ t('common.retry') }}</span>
+          </button>
         </div>
 
         <!-- Items Article List -->
@@ -547,7 +647,7 @@ const submitRfq = async () => {
           <div class="items-card-head">
             <h2 id="tray-heading" class="items-heading">
               <span>{{ t('cart.trayHeading') }}</span>
-              <span class="items-count-pill mono">{{ t('cart.itemsCount', { count }) }}</span>
+              <span class="items-count-pill mono">{{ t('cart.itemsCount', { count: lineCount }) }}</span>
             </h2>
           </div>
 
@@ -566,38 +666,47 @@ const submitRfq = async () => {
                 </div>
 
                 <div class="cart-line__details">
-                  <h3 class="cart-line__title" dir="auto">{{ localized(it.product.nameEn, it.product.nameAr) }}</h3>
+                  <h2 class="cart-line__title" dir="auto">{{ localized(it.product.nameEn, it.product.nameAr) }}</h2>
                   <div class="cart-line__title-alt mono" dir="auto" :lang="locale === 'ar' ? 'en' : 'ar'">
                     {{ locale === 'ar' ? it.product.nameEn : it.product.nameAr }}
                   </div>
                   <div class="cart-line__meta mono">
                     <span>SKU: {{ it.product.sku }}</span>
-                    <span class="dot">•</span>
+                    <span class="dot-sep" aria-hidden="true">•</span>
                     <span>{{ t('marketplace.minOrder', { qty: it.product.minOrderQty }) }}</span>
                   </div>
+                  <!-- One number drives all three: the quoted per-unit price, the
+                       line total and the order/RFQ payload. Nothing rounds twice. -->
                   <div class="cart-line__price mono">
                     <div class="active-unit-price">
-                      <strong class="active-unit-val">{{ (getServerLine(it.product.id)?.ceiledUnit ?? Math.ceil(it.product.price)).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') }} {{ (it.product.currencyCode || 'USD').toUpperCase() }}</strong>
+                      <strong class="active-unit-val">
+                        <span class="total-sym">{{ activeCurrencyMeta.symbol }}</span>{{ fmtQuote(getServerLine(it.product.id)?.convertedUnit ?? null) }}
+                        <span class="total-code">{{ targetCurrency }}</span>
+                      </strong>
                       <span class="active-unit-per">{{ t('account.perUnitShort') }}</span>
                     </div>
                     <div v-if="getServerLine(it.product.id)" class="orig-price-wrap">
-                      <span class="orig-pill">≈ {{ getServerLine(it.product.id)!.convertedUnit.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') }} {{ targetCurrency }}</span>
-                      <span class="material-symbols-outlined text-[12px] conv-arrow icon--directional">arrow_forward</span>
+                      <span class="orig-pill">
+                        {{ t('cart.originalPrice') }} {{ fmtQuote(getServerLine(it.product.id)!.nativeUnit) }} {{ getServerLine(it.product.id)!.nativeCurrency }}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="cart-line__controls">
+                <!-- stock 0 means "made to order", not "no quantity allowed":
+                     maxQtyFor() mirrors the clamp useCart.add/setQty apply, so
+                     the stepper can never be frozen at a disabled + and −. -->
                 <QuantityStepper
                   :model-value="it.quantity"
                   :min="it.product.minOrderQty"
-                  :max="it.product.stock"
+                  :max="maxQtyFor(it.product)"
                   @update:model-value="setQty(it.product.id, $event)"
                 />
 
                 <div class="cart-line__total mono">
-                  <span class="total-lbl">{{ t('commerce.subtotal') }}</span>
+                  <span class="line-total-lbl">{{ t('commerce.subtotal') }}</span>
                   <strong class="total-fig">
                     <span class="total-sym">{{ activeCurrencyMeta.symbol }}</span>
                     <span>{{ fmtQuote(getServerLine(it.product.id)?.lineTotal ?? null) }}</span>
@@ -629,9 +738,13 @@ const submitRfq = async () => {
           </div>
 
           <div class="summary-rows">
+            <!-- Real breakdown, not a second copy of the total printed above it:
+                 how many lines the figure covers, and in which currency. -->
             <div class="summary-row">
-              <span class="mono">{{ count }} {{ t('marketplace.products') }}</span>
-              <strong class="mono">{{ activeCurrencyMeta.symbol }} {{ fmtQuote(displayTotal) }} {{ targetCurrency }}</strong>
+              <span class="mono">{{ lineCount }} {{ t('marketplace.products') }}</span>
+              <span class="summary-curr mono">
+                <span class="total-sym">{{ activeCurrencyMeta.symbol }}</span>{{ targetCurrency }}
+              </span>
             </div>
 
             <div class="summary-divider"></div>
@@ -646,8 +759,13 @@ const submitRfq = async () => {
               </strong>
             </div>
 
+            <div v-if="totalPending && !unconvertedIds.length" class="total-pending mono" aria-live="polite">
+              <span class="material-symbols-outlined text-[15px] spin-anim">hourglass_top</span>
+              <span>{{ t('common.loading') }}</span>
+            </div>
+
             <div class="fx-live-note">
-              <span class="material-symbols-outlined text-[15px] text-emerald-600">currency_exchange</span>
+              <span class="material-symbols-outlined text-[15px] icon-success">currency_exchange</span>
               <span>{{ t('cart.currencyHelp') }}</span>
             </div>
           </div>
@@ -667,22 +785,25 @@ const submitRfq = async () => {
 
           <!-- Price Negotiation Section -->
           <div class="negotiation-card" :class="{ 'is-active': enableNegotiation }">
-            <div class="negotiation-toggle" @click="enableNegotiation = !enableNegotiation">
-              <label class="toggle-checkbox" @click.stop>
-                <input
-                  v-model="enableNegotiation"
-                  type="checkbox"
-                  class="sr-only"
-                />
-                <span class="custom-checkbox" :class="{ 'is-checked': enableNegotiation }">
+            <!-- A <div @click> was not reachable by keyboard and nested a second
+                 click handler; a <label> wrapping the real checkbox is operable
+                 by mouse, keyboard and touch, with no ARIA needed. -->
+            <label class="negotiation-toggle">
+              <input
+                v-model="enableNegotiation"
+                type="checkbox"
+                class="sr-only"
+              />
+              <span class="toggle-checkbox">
+                <span class="custom-checkbox" :class="{ 'is-checked': enableNegotiation }" aria-hidden="true">
                   <span v-if="enableNegotiation" class="material-symbols-outlined text-[14px]">check</span>
                 </span>
-              </label>
-              <div class="toggle-text">
+              </span>
+              <span class="toggle-text">
                 <span class="negotiation-title mono">{{ t('sales.negotiateTotal') }}</span>
-                <p class="negotiation-desc">{{ t('sales.negotiateTotalDesc') }}</p>
-              </div>
-            </div>
+                <span class="negotiation-desc">{{ t('sales.negotiateTotalDesc') }}</span>
+              </span>
+            </label>
 
             <div v-if="enableNegotiation" class="negotiation-fields">
               <div class="form-group">
@@ -717,7 +838,7 @@ const submitRfq = async () => {
               </div>
 
               <div v-if="targetProposedTotal" class="negotiation-badge-row mono">
-                <span class="material-symbols-outlined text-[16px] text-emerald-600">handshake</span>
+                <span class="material-symbols-outlined text-[16px] icon-success">handshake</span>
                 <span>
                   {{ t('sales.negotiationSummary', {
                     target: `${activeCurrencyMeta.symbol} ${targetProposedTotal.toLocaleString()} ${targetCurrency}`,
@@ -743,20 +864,48 @@ const submitRfq = async () => {
               </div>
             </div>
 
-            <button class="btn btn-primary btn-press btn-block btn-lg" type="button" @click="goCheckout">
-              <span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
-              <span>{{ t('commerce.placeOrder') }} · {{ activeCurrencyMeta.symbol }} {{ fmtQuote(displayTotal) }} {{ targetCurrency }}</span>
-            </button>
+            <!-- Staff, sales and provider accounts are redirected away from
+                 /cart and /checkout by the router, so their commerce CTAs are
+                 hidden rather than shown and then dead-ended. For a guest,
+                 /checkout is `requiresAuth`, so "Place Order" was bounced to a
+                 login wall with no explanation — offer the sign-in directly
+                 instead of a button that silently fails. -->
+            <template v-if="canUseCommerce">
+              <button
+                class="btn btn-primary btn-press btn-block btn-lg"
+                type="button"
+                :disabled="!canSubmitOrder"
+                :title="!canSubmitOrder ? blockedReason || undefined : undefined"
+                :aria-describedby="!canSubmitOrder && unconvertedIds.length ? 'rate-error' : undefined"
+                @click="goCheckout"
+              >
+                <span class="material-symbols-outlined text-[18px]">shopping_cart_checkout</span>
+                <span>{{ t('commerce.placeOrder') }} · {{ activeCurrencyMeta.symbol }} {{ fmtQuote(displayTotal) }} {{ targetCurrency }}</span>
+              </button>
 
+              <button
+                class="btn btn-ghost btn-block"
+                type="button"
+                :disabled="submittingRfq || !canSubmitOrder"
+                :title="!canSubmitOrder ? blockedReason || undefined : undefined"
+                :aria-describedby="!canSubmitOrder && unconvertedIds.length ? 'rate-error' : undefined"
+                @click="submitRfq"
+              >
+                <span class="material-symbols-outlined text-[18px]">request_quote</span>
+                <span>{{ submittingRfq ? t('sales.submittingRfq') : t('sales.submitRfq') }}</span>
+              </button>
+            </template>
             <button
-              class="btn btn-ghost btn-block"
+              v-else-if="isGuest"
+              class="btn btn-primary btn-press btn-block btn-lg"
               type="button"
-              :disabled="submittingRfq"
-              @click="submitRfq"
+              @click="goLogin"
             >
-              <span class="material-symbols-outlined text-[18px]">request_quote</span>
-              <span>{{ submittingRfq ? t('sales.submittingRfq') : t('sales.submitRfq') }}</span>
+              <span class="material-symbols-outlined text-[18px]">login</span>
+              <span>{{ t('cart.signInToCheckout') }}</span>
             </button>
+            <p v-else-if="!canUseCommerce" class="guest-hint mono">{{ t('cart.commerceUnavailable') }}</p>
+            <p v-else class="guest-hint mono">{{ t('cart.signInToCheckoutDesc') }}</p>
           </div>
         </div>
       </aside>
@@ -776,11 +925,13 @@ const submitRfq = async () => {
   margin-bottom: 1.25rem;
 }
 
+/* Kept byte-identical to the checkout breadcrumb: same scale, spacing, hover
+   and current-crumb treatment on both commerce steps. */
 .breadcrumb {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 11px;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
   color: var(--wl-muted);
 }
 
@@ -792,6 +943,11 @@ const submitRfq = async () => {
 
 .breadcrumb a:hover {
   color: var(--wl-primary);
+}
+
+.breadcrumb a:focus-visible {
+  outline: 2px solid var(--wl-primary);
+  outline-offset: 2px;
 }
 
 .breadcrumb .sep {
@@ -819,7 +975,7 @@ const submitRfq = async () => {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--wl-primary);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -829,14 +985,14 @@ const submitRfq = async () => {
 .cart-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--wl-primary);
   box-shadow: 0 0 0 3px var(--wl-primary-soft);
 }
 
 .cart-title {
   font-family: var(--wl-font-display);
-  font-size: clamp(1.85rem, 3.2vw, 2.4rem);
+  font-size: clamp(var(--text-3xl), 3.2vw, var(--text-4xl));
   font-weight: 800;
   letter-spacing: -0.025em;
   color: var(--wl-ink-strong);
@@ -845,7 +1001,7 @@ const submitRfq = async () => {
 }
 
 .cart-desc {
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: var(--wl-ink-soft);
   margin: 0;
 }
@@ -880,9 +1036,9 @@ const submitRfq = async () => {
 .currency-hub-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--wl-radius-card, 16px);
+  border-radius: var(--radius-card);
   padding: 1.25rem 1.5rem;
-  box-shadow: var(--wl-shadow-card, 0 1px 3px rgba(0, 10, 25, 0.05));
+  box-shadow: var(--shadow-card);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -909,13 +1065,13 @@ const submitRfq = async () => {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--wl-success);
   background: var(--wl-success-soft);
-  border: 1px solid rgba(87, 242, 135, 0.35);
+  border: 1px solid rgba(var(--wl-success-rgb), 0.35);
   padding: 0.18rem 0.55rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -923,22 +1079,22 @@ const submitRfq = async () => {
 .fx-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: var(--color-success-500, #198754);
-  box-shadow: 0 0 0 2px rgba(25, 135, 84, 0.2);
+  border-radius: var(--radius-full);
+  background: var(--wl-success);
+  box-shadow: 0 0 0 2px rgba(var(--wl-success-rgb), 0.2);
 }
 
 .address-curr-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 700;
-  color: var(--primary, #0F3D56);
-  background: var(--brand-soft, #EDF4FF);
-  border: 1px solid var(--border, #D9E2EC);
+  color: var(--wl-primary);
+  background: var(--wl-primary-soft);
+  border: 1px solid var(--wl-border);
   padding: 0.18rem 0.55rem;
-  border-radius: var(--radius-xs, 3px);
+  border-radius: var(--radius-xs);
 }
 
 .curr-hub__active-hero {
@@ -966,21 +1122,21 @@ const submitRfq = async () => {
 }
 
 .active-code {
-  font-size: 1.28rem;
+  font-size: var(--text-xl);
   font-weight: 800;
-  color: var(--fg-heading, #102A43);
+  color: var(--wl-ink-strong);
   letter-spacing: -0.01em;
   line-height: 1.1;
 }
 
 .active-symbol-badge {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 800;
-  color: var(--primary, #0F3D56);
-  background: var(--brand-soft, #EDF4FF);
-  border: 1px solid var(--border, #D9E2EC);
+  color: var(--wl-primary);
+  background: var(--wl-primary-soft);
+  border: 1px solid var(--wl-border);
   padding: 0.1rem 0.45rem;
-  border-radius: var(--radius-xs, 3px);
+  border-radius: var(--radius-xs);
   line-height: 1.2;
 }
 
@@ -988,9 +1144,9 @@ const submitRfq = async () => {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--fg-muted, #627D98);
+  color: var(--wl-muted);
 }
 
 .dot-sep {
@@ -998,8 +1154,8 @@ const submitRfq = async () => {
 }
 
 .curr-hub__hint {
-  font-size: 11px;
-  color: var(--fg-muted, #627D98);
+  font-size: var(--text-xs);
+  color: var(--wl-muted);
   margin: 0;
   line-height: 1.4;
 }
@@ -1022,31 +1178,38 @@ const submitRfq = async () => {
 }
 
 .chips-lbl {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: var(--fg-muted, #627D98);
+  color: var(--wl-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
+/* Was ~22px tall. Desktop gets a legible 32px; touch gets the 44px floor. */
 .btn-refresh-rates {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  min-height: 32px;
   background: transparent;
   border: none;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--fg-muted, #627D98);
+  color: var(--wl-muted);
   cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  border-radius: var(--radius-xs, 3px);
-  transition: all 0.15s ease;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .btn-refresh-rates:hover:not(:disabled) {
-  color: var(--brand);
+  color: var(--wl-primary);
   background: var(--wl-primary-soft);
+}
+
+.btn-refresh-rates:focus-visible {
+  outline: 2px solid var(--wl-primary);
+  outline-offset: 2px;
 }
 
 .btn-refresh-rates:disabled {
@@ -1071,11 +1234,12 @@ const submitRfq = async () => {
   position: relative;
 }
 
+/* Was 38px tall. */
 .curr-pill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 38px;
+  height: 40px;
   padding: 0 var(--space-3);
   background: var(--wl-surface);
   border: 1.5px solid var(--wl-border);
@@ -1124,7 +1288,7 @@ const submitRfq = async () => {
 }
 
 .pill-sym {
-  font-size: 11px;
+  font-size: var(--text-xs);
   opacity: 0.85;
   background: var(--wl-surface-soft);
   padding: 0.1rem 0.35rem;
@@ -1132,7 +1296,7 @@ const submitRfq = async () => {
 }
 
 .pill-addr-dot {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .curr-pill--more {
@@ -1201,10 +1365,10 @@ const submitRfq = async () => {
 
 .popover-search-input {
   width: 100%;
-  height: 38px;
+  height: 40px;
   padding: 0 var(--space-2);
   padding-inline-start: 34px;
-  padding-inline-end: 28px;
+  padding-inline-end: 32px;
   background: var(--wl-surface-soft);
   border: 1.5px solid var(--wl-border);
   border-radius: var(--radius-sm);
@@ -1220,9 +1384,14 @@ const submitRfq = async () => {
   box-shadow: var(--wl-focus-ring);
 }
 
+/* Was ~20px. The visual glyph stays 14px; only the hit area grows. */
 .clear-search-btn {
   position: absolute;
-  inset-inline-end: 8px;
+  inset-inline-end: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 28px;
+  min-height: 28px;
   background: transparent;
   border: none;
   color: var(--wl-muted);
@@ -1230,6 +1399,21 @@ const submitRfq = async () => {
   display: grid;
   place-items: center;
   padding: 0.2rem;
+  border-radius: var(--radius-xs);
+}
+
+.clear-search-btn:hover {
+  color: var(--wl-ink-strong);
+  background: var(--wl-surface-soft);
+}
+
+.clear-search-btn:focus-visible {
+  outline: 2px solid var(--wl-primary);
+  outline-offset: 1px;
+}
+
+.check-icon-lg {
+  color: var(--wl-primary);
 }
 
 .popover-items-list {
@@ -1349,24 +1533,62 @@ const submitRfq = async () => {
   text-align: center;
 }
 
-.rate-warn {
+/* An unconverted line leaves the total unknown, so this is a blocking error
+   (danger tokens + retry) rather than an advisory warning. */
+.rate-error {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
   padding: var(--space-2) var(--space-3);
-  background: var(--wl-warning-soft);
-  border: 1px solid var(--wl-warning);
-  color: var(--wl-amber);
+  background: var(--wl-danger-soft);
+  border: 1px solid var(--wl-danger);
+  color: var(--wl-danger);
   border-radius: var(--radius-md);
   font-size: var(--step--1);
   font-weight: 600;
+}
+
+.rate-error__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.rate-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--wl-surface);
+  border: 1px solid var(--wl-danger);
+  border-radius: var(--radius-sm);
+  color: var(--wl-danger);
+  font-size: var(--step--1);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rate-retry-btn:hover:not(:disabled) {
+  background: var(--wl-danger);
+  color: var(--wl-on-primary);
+}
+
+.rate-retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rate-retry-btn:focus-visible {
+  outline: 2px solid var(--wl-danger);
+  outline-offset: 2px;
 }
 
 /* Items Card */
 .cart-items-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-5);
   box-shadow: var(--shadow-card);
 }
@@ -1380,7 +1602,7 @@ const submitRfq = async () => {
   justify-content: space-between;
   align-items: center;
   font-family: var(--wl-font-display);
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--wl-ink-strong);
@@ -1422,7 +1644,10 @@ const submitRfq = async () => {
   align-items: center;
   gap: var(--space-4);
   flex: 1;
-  min-width: 260px;
+  /* Was a hard 260px, which together with a non-wrapping controls row forced
+     horizontal scroll on phones. `min()` keeps the desktop intent while
+     letting the line shrink below it. */
+  min-width: min(260px, 100%);
 }
 
 .cart-thumb {
@@ -1436,10 +1661,11 @@ const submitRfq = async () => {
   flex-shrink: 0;
 }
 
+/* `fit="contain"` is set on the <AppImage> child, which owns the object-fit.
+   Declaring `cover` here fought it and cropped surgical instruments. */
 .cart-thumb__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .cart-line__details {
@@ -1494,10 +1720,6 @@ const submitRfq = async () => {
   border-radius: var(--radius-sm);
 }
 
-.conv-arrow {
-  color: var(--wl-muted);
-}
-
 .active-unit-price {
   display: inline-flex;
   align-items: baseline;
@@ -1508,12 +1730,7 @@ const submitRfq = async () => {
   font-size: var(--step-0);
   font-weight: 700;
   color: var(--wl-ink-strong);
-}
-
-.active-unit-code {
-  font-size: var(--step--1);
-  font-weight: 700;
-  color: var(--wl-muted);
+  white-space: nowrap;
 }
 
 .active-unit-per {
@@ -1521,10 +1738,15 @@ const submitRfq = async () => {
   color: var(--wl-muted);
 }
 
+/* Stepper + line total + remove button used to be one non-wrapping ~300px row
+   next to a 260px media block. Letting it wrap keeps the line inside narrow
+   viewports. */
 .cart-line__controls {
   display: flex;
   align-items: center;
   gap: var(--space-5);
+  flex-wrap: wrap;
+  justify-content: flex-end;
   flex-shrink: 0;
 }
 
@@ -1533,10 +1755,13 @@ const submitRfq = async () => {
   flex-direction: column;
   align-items: flex-end;
   gap: var(--space-1);
-  min-width: 110px;
+  min-width: min(110px, 100%);
 }
 
-.total-lbl {
+/* Line-total caption. Previously both this and the summary "Total" caption
+   were called `.total-lbl`, and the later definition silently overrode the
+   earlier one — they are different roles and now different names. */
+.line-total-lbl {
   font-size: var(--step--1);
   color: var(--wl-muted);
   letter-spacing: 0.05em;
@@ -1546,13 +1771,14 @@ const submitRfq = async () => {
   font-size: var(--step-0);
   font-weight: 800;
   color: var(--wl-ink-strong);
+  white-space: nowrap;
 }
 
 .line-remove-btn {
   background: none;
   border: 1px solid var(--wl-border);
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
   color: var(--wl-muted);
   cursor: pointer;
@@ -1581,7 +1807,7 @@ const submitRfq = async () => {
 .summary-card {
   background: var(--wl-surface);
   border: 1px solid var(--wl-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-5);
   box-shadow: var(--shadow-card);
   position: relative;
@@ -1606,7 +1832,7 @@ const submitRfq = async () => {
 
 .summary-title {
   font-family: var(--wl-font-display);
-  font-size: 1.25rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   letter-spacing: -0.015em;
   color: var(--wl-ink-strong);
@@ -1642,17 +1868,22 @@ const submitRfq = async () => {
   margin: var(--space-1) 0;
 }
 
-.summary-row--total {
-  font-size: var(--step-0);
+.summary-curr {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--wl-muted);
 }
 
+/* Summary "Total" caption — bold, unlike the muted per-line subtotal caption. */
 .total-lbl {
   font-weight: 800;
   color: var(--wl-ink-strong);
 }
 
 .total-val {
-  font-size: 1.45rem;
+  font-size: var(--text-2xl);
   font-weight: 800;
   color: var(--wl-ink-strong);
   font-variant-numeric: tabular-nums;
@@ -1660,12 +1891,12 @@ const submitRfq = async () => {
 }
 
 .total-curr {
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   color: var(--wl-primary);
 }
 
 .total-sym {
-  font-size: 1.15rem;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--wl-primary);
   margin-inline-end: var(--space-1);
@@ -1678,11 +1909,24 @@ const submitRfq = async () => {
   margin-inline-start: var(--space-1);
 }
 
-.sum-code {
+.total-pending {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: var(--step--1);
-  font-weight: 700;
   color: var(--wl-muted);
-  margin-inline-start: var(--space-1);
+}
+
+.icon-success {
+  color: var(--wl-success);
+}
+
+.guest-hint {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--wl-muted);
+  line-height: 1.4;
+  text-align: center;
 }
 
 .fx-live-note {
@@ -1745,11 +1989,11 @@ const submitRfq = async () => {
   align-items: flex-start;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-inline-start: 3px solid var(--primary);
+  border: 1px solid var(--wl-border);
+  border-inline-start: 3px solid var(--wl-primary);
   border-radius: var(--radius-md);
-  background: var(--bg-subtle);
-  color: var(--fg-muted);
+  background: var(--wl-surface-soft);
+  color: var(--wl-muted);
   font-size: var(--text-xs);
   line-height: 1.5;
   margin-bottom: var(--space-1);
@@ -1763,15 +2007,15 @@ const submitRfq = async () => {
 }
 
 .rfq-currency-label {
-  color: var(--fg-muted);
+  color: var(--wl-muted);
 }
 
 .rfq-currency-value {
-  color: var(--primary);
+  color: var(--wl-primary);
 }
 
 .rfq-currency-from {
-  color: var(--fg-subtle);
+  color: var(--wl-muted);
 }
 
 /* Price Negotiation Card */
@@ -1787,9 +2031,11 @@ const submitRfq = async () => {
 .negotiation-card.is-active {
   border: 1px solid var(--wl-primary);
   background: var(--wl-surface);
-  box-shadow: 0 4px 12px rgba(179, 139, 45, 0.08);
+  box-shadow: var(--shadow-hover);
 }
 
+/* A <label> wrapping the real checkbox: operable by mouse, keyboard and touch.
+   `display: flex` is required because the default label is inline. */
 .negotiation-toggle {
   display: flex;
   align-items: flex-start;
@@ -1798,20 +2044,31 @@ const submitRfq = async () => {
   user-select: none;
 }
 
+.negotiation-toggle:focus-within {
+  outline: 2px solid var(--wl-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Pads the 18px box out to a 44px hit area without enlarging the visual. */
 .toggle-checkbox {
-  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  min-width: var(--wl-touch-min);
+  min-height: var(--wl-touch-min);
+  margin: -8px 0 0 -13px;
   cursor: pointer;
 }
 
 .custom-checkbox {
   width: 18px;
   height: 18px;
-  border-radius: var(--radius-xs, 4px);
+  border-radius: var(--radius-xs);
   border: 1.5px solid var(--wl-border);
   background: var(--wl-surface);
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--wl-on-primary);
   transition: all 0.15s ease;
 }
 
@@ -1822,6 +2079,7 @@ const submitRfq = async () => {
 
 .toggle-text {
   flex: 1;
+  min-width: 0;
 }
 
 .negotiation-title {
@@ -1834,7 +2092,8 @@ const submitRfq = async () => {
 .negotiation-desc {
   font-size: var(--step--1);
   color: var(--wl-muted);
-  margin: var(--space-1) 0 0;
+  display: block;
+  margin-top: var(--space-1);
   line-height: 1.35;
 }
 
@@ -1855,11 +2114,11 @@ const submitRfq = async () => {
 }
 
 .discount-pill {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: #059669;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
+  color: var(--wl-success);
+  background: var(--wl-success-soft);
+  border: 1px solid rgba(var(--wl-success-rgb), 0.35);
   padding: 1px 8px;
   border-radius: var(--radius-full);
 }
@@ -1921,6 +2180,49 @@ const submitRfq = async () => {
   }
   .cart-summary-col {
     position: static;
+  }
+}
+
+/* Drop the remaining minimums so a line can never exceed a phone viewport. */
+@media (max-width: 480px) {
+  .cart-line {
+    gap: var(--space-3);
+  }
+  .cart-line__controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .cart-line__total {
+    min-width: 0;
+    align-items: flex-start;
+    text-align: start;
+  }
+  .cart-line__media {
+    min-width: 0;
+  }
+}
+
+/* --wl-touch-min floor for touch pointers. */
+@media (pointer: coarse) {
+  .line-remove-btn {
+    width: var(--wl-touch-min);
+    height: var(--wl-touch-min);
+  }
+  .curr-pill {
+    height: var(--wl-touch-min);
+  }
+  .btn-refresh-rates,
+  .rate-retry-btn {
+    min-height: var(--wl-touch-min);
+  }
+  .clear-search-btn {
+    min-width: var(--wl-touch-min);
+    min-height: var(--wl-touch-min);
+    inset-inline-end: -6px;
+  }
+  .popover-item-btn {
+    min-height: var(--wl-touch-min);
   }
 }
 </style>

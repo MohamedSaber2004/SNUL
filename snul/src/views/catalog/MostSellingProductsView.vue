@@ -18,6 +18,7 @@ const marketplaceService = services.marketplaceService
 const rawProducts = ref<ProductDto[]>([])
 const categories = ref<CategoryDto[]>([])
 const loading = ref(true)
+const error = ref<string | null>(null)
 
 // Filters
 const search = ref('')
@@ -38,15 +39,22 @@ const localized = (en?: string | null, ar?: string | null) => {
 
 const loadData = async () => {
   loading.value = true
+  error.value = null
+  // Never render a previous visit's cache while (or if) this load fails.
+  rawProducts.value = []
+  marketplaceService.mostSelling.value = []
   try {
-    const [_, cats] = await Promise.allSettled([
+    const [productsRes, cats] = await Promise.allSettled([
       marketplaceService.loadMostSelling(48),
       marketplaceService.getCategories(),
     ])
+    if (productsRes.status === 'rejected') throw productsRes.reason
     rawProducts.value = marketplaceService.mostSelling.value || []
     if (cats.status === 'fulfilled') {
       categories.value = cats.value || []
     }
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : t('common.loadFailed')
   } finally {
     loading.value = false
   }
@@ -177,7 +185,7 @@ const goToProduct = (id: string) => {
     <!-- Breadcrumb & Page Header -->
     <header class="page-header">
       <div class="container-app">
-        <nav class="breadcrumb-nav mono" aria-label="Breadcrumb">
+        <nav class="breadcrumb-nav mono" :aria-label="t('common.breadcrumb')">
           <router-link to="/" class="breadcrumb-link">{{ t('nav.home') }}</router-link>
           <span class="breadcrumb-sep">/</span>
           <span class="breadcrumb-current">{{ t('mostSellingPage.breadcrumb') }}</span>
@@ -218,10 +226,10 @@ const goToProduct = (id: string) => {
       </div>
     </header>
 
-    <main class="page-body">
+    <section class="page-body" :aria-label="t('mostSellingPage.title')">
       <div class="container-app">
         <!-- Filter Controls Toolbar -->
-        <section v-reveal class="toolbar-card" aria-label="Filters and Controls">
+        <section v-reveal class="toolbar-card" :aria-label="t('catalog.filters')">
           <div class="toolbar-main">
             <!-- Search bar -->
             <div class="search-wrap">
@@ -236,7 +244,7 @@ const goToProduct = (id: string) => {
                 v-if="search"
                 type="button"
                 class="clear-search-btn"
-                aria-label="Clear search"
+                :aria-label="t('common.clearInput')"
                 @click="search = ''"
               >
                 <span class="material-symbols-outlined text-[16px]">close</span>
@@ -245,7 +253,7 @@ const goToProduct = (id: string) => {
 
             <!-- Category selector -->
             <div class="select-wrap">
-              <select v-model="selectedCategory" class="toolbar-select">
+              <select v-model="selectedCategory" class="toolbar-select" :aria-label="t('catalog.categories')">
                 <option value="all">{{ t('mostSellingPage.allCategories') }}</option>
                 <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                   {{ localized(cat.nameEn, cat.nameAr) }}
@@ -255,7 +263,7 @@ const goToProduct = (id: string) => {
 
             <!-- Material selector -->
             <div v-if="materials.length" class="select-wrap">
-              <select v-model="selectedMaterial" class="toolbar-select">
+              <select v-model="selectedMaterial" class="toolbar-select" :aria-label="t('catalog.material')">
                 <option value="all">{{ t('mostSellingPage.allMaterials') }}</option>
                 <option v-for="mat in materials" :key="mat" :value="mat">
                   {{ mat }}
@@ -271,8 +279,8 @@ const goToProduct = (id: string) => {
 
             <!-- Sort By dropdown -->
             <div class="select-wrap sort-select-wrap">
-              <label class="sort-label mono">{{ t('mostSellingPage.sortBy') }}:</label>
-              <select v-model="sortBy" class="toolbar-select">
+              <label class="sort-label mono" for="most-selling-sort">{{ t('mostSellingPage.sortBy') }}:</label>
+              <select id="most-selling-sort" v-model="sortBy" class="toolbar-select">
                 <option value="rank">{{ t('mostSellingPage.sortRank') }}</option>
                 <option value="priceAsc">{{ t('mostSellingPage.sortPriceAsc') }}</option>
                 <option value="priceDesc">{{ t('mostSellingPage.sortPriceDesc') }}</option>
@@ -281,13 +289,13 @@ const goToProduct = (id: string) => {
             </div>
 
             <!-- View Mode Switcher -->
-            <div class="view-mode-toggle" role="group" aria-label="View Mode">
+            <div class="view-mode-toggle" role="group" aria-label="{{ t('common.viewMode') }}">
               <button
                 type="button"
                 class="view-toggle-btn"
                 :class="{ 'is-active': viewMode === 'grid' }"
-                title="Grid View"
-                aria-label="Grid View"
+                title="{{ t('common.viewGrid') }}"
+                aria-label="{{ t('common.viewGrid') }}"
                 @click="viewMode = 'grid'"
               >
                 <span class="material-symbols-outlined text-[18px]">grid_view</span>
@@ -296,8 +304,8 @@ const goToProduct = (id: string) => {
                 type="button"
                 class="view-toggle-btn"
                 :class="{ 'is-active': viewMode === 'list' }"
-                title="List View"
-                aria-label="List View"
+                title="{{ t('common.viewList') }}"
+                aria-label="{{ t('common.viewList') }}"
                 @click="viewMode = 'list'"
               >
                 <span class="material-symbols-outlined text-[18px]">view_list</span>
@@ -364,21 +372,20 @@ const goToProduct = (id: string) => {
         <DataState
           :loading="loading && !rawProducts.length"
           :empty="!paginatedProducts.length && !loading"
+          :error="error"
+          :error-title="t('common.loadFailed')"
+          :error-message="error ?? t('common.loadFailed')"
+          :retry-text="t('common.retry')"
           skeleton-type="product-card"
           :skeleton-count="8"
           min-height="350px"
+          :title="t('mostSellingPage.noProducts')"
+          :description="t('mostSellingPage.noProductsDesc')"
+          :action-text="t('mostSellingPage.clearFilters')"
+          icon="sentiment_dissatisfied"
+          @action="clearAllFilters"
+          @retry="loadData"
         >
-          <template #empty>
-            <div class="empty-state">
-              <span class="material-symbols-outlined empty-icon">sentiment_dissatisfied</span>
-              <h3 class="empty-title">{{ t('mostSellingPage.noProducts') }}</h3>
-              <p class="empty-desc">{{ t('mostSellingPage.noProductsDesc') }}</p>
-              <button class="btn btn-secondary btn-sm" type="button" @click="clearAllFilters">
-                {{ t('mostSellingPage.clearFilters') }}
-              </button>
-            </div>
-          </template>
-
           <!-- Grid Display -->
           <div v-if="viewMode === 'grid'" class="product-grid">
             <article
@@ -437,9 +444,11 @@ const goToProduct = (id: string) => {
                   </span>
                 </div>
 
-                <h3 class="card-title" dir="auto">
-                  {{ localized(p.nameEn, p.nameAr) }}
-                </h3>
+                <h2 class="card-title" dir="auto">
+                  <router-link class="card-title-link" :to="{ name: 'marketplace-product', params: { id: p.id } }" @click.stop>
+                    {{ localized(p.nameEn, p.nameAr) }}
+                  </router-link>
+                </h2>
 
                 <div class="mono card-alt-name" dir="auto">
                   {{ locale === 'en' ? p.nameAr : p.nameEn }}
@@ -449,7 +458,7 @@ const goToProduct = (id: string) => {
                 <div class="card-specs mono">
                   <span v-if="p.material" class="spec-tag">{{ p.material }}</span>
                   <span v-if="p.lengthCm" class="spec-tag">{{ p.lengthCm }} cm</span>
-                  <span class="spec-tag">CE Class IIa</span>
+                  <span v-if="p.isActive" class="spec-tag">{{ t('catalog.ceMarked') }}</span>
                 </div>
 
                 <div class="card-provider mono">
@@ -511,7 +520,7 @@ const goToProduct = (id: string) => {
                       </span>
                     </td>
                     <td>
-                      <div class="flex items-center gap-3">
+                      <div class="exec-row__media">
                         <div class="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
                           <AppImage
                             :src="p.imageName"
@@ -521,12 +530,12 @@ const goToProduct = (id: string) => {
                             class="w-full h-full object-cover"
                           />
                         </div>
-                        <div>
-                          <div class="font-semibold text-slate-900 text-sm hover:text-teal-600 transition-colors">
+                        <div class="exec-row__meta">
+                          <router-link class="exec-row__name" :to="{ name: 'marketplace-product', params: { id: p.id } }" @click.stop>
                             {{ localized(p.nameEn, p.nameAr) }}
-                          </div>
+                          </router-link>
                           <div class="text-xs text-slate-500 font-mono flex items-center gap-2 mt-0.5">
-                            <span v-if="p.sku">SKU: {{ p.sku }}</span>
+                            <span v-if="p.sku">{{ t('marketplace.sku') }}: {{ p.sku }}</span>
                             <span v-if="p.material">· {{ p.material }}</span>
                             <span v-if="p.lengthCm">· {{ p.lengthCm }} cm</span>
                           </div>
@@ -539,8 +548,10 @@ const goToProduct = (id: string) => {
                       </span>
                     </td>
                     <td>
-                      <span v-if="p.stock > 0" class="stock-pill stock-pill--in mono">{{ t('catalog.inStock') }}</span>
-                      <span v-else class="stock-pill stock-pill--out mono">{{ t('catalog.madeToOrder') }}</span>
+                      <div class="stock-cell">
+                        <span v-if="p.stock > 0" class="stock-pill stock-pill--in mono">{{ t('catalog.inStock') }}</span>
+                        <span v-else class="stock-pill stock-pill--out mono">{{ t('catalog.madeToOrder') }}</span>
+                      </div>
                     </td>
                     <td>
                       <strong class="mono text-sm font-bold text-slate-900">
@@ -569,14 +580,16 @@ const goToProduct = (id: string) => {
           <!-- Pagination -->
           <div v-if="totalPages > 1" class="pagination-wrap">
             <AppPagination
-              :current-page="page"
+              :page="page"
               :total-pages="totalPages"
-              @page-change="page = $event"
+              :total-items="totalCount"
+              :page-size="pageSize"
+              @change="page = $event"
             />
           </div>
         </DataState>
       </div>
-    </main>
+    </section>
   </div>
 </template>
 
@@ -795,6 +808,7 @@ const goToProduct = (id: string) => {
 
 .toolbar-select {
   width: 100%;
+  min-height: 36px;
   padding: 0.55rem 0.875rem;
   font-size: 0.875rem;
   border: 1px solid var(--border);
@@ -831,6 +845,7 @@ const goToProduct = (id: string) => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  min-height: 36px;
   padding: 0.5rem 0.875rem;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -903,7 +918,7 @@ const goToProduct = (id: string) => {
 /* Products Grid */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: 1.25rem;
 }
 
@@ -1051,6 +1066,21 @@ const goToProduct = (id: string) => {
   overflow: hidden;
 }
 
+.card-title-link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.card-title-link:hover {
+  color: var(--brand);
+}
+
+.card-title-link:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
 .card-alt-name {
   font-size: 0.75rem;
   color: var(--fg-muted);
@@ -1145,35 +1175,6 @@ const goToProduct = (id: string) => {
   transform: translateY(0);
 }
 
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 3.5rem 1.5rem;
-  background: var(--bg-surface);
-  border: 1px dashed var(--border-strong);
-  border-radius: 12px;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  color: var(--fg-subtle);
-  margin-bottom: 0.75rem;
-}
-
-.empty-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--fg-heading);
-  margin-bottom: 0.5rem;
-}
-
-.empty-desc {
-  font-size: 0.875rem;
-  color: var(--fg-muted);
-  max-width: 480px;
-  margin: 0 auto 1.25rem;
-}
-
 /* Pagination */
 .pagination-wrap {
   margin-top: 2.5rem;
@@ -1208,8 +1209,8 @@ const goToProduct = (id: string) => {
 .view-toggle-btn {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
@@ -1236,6 +1237,91 @@ const goToProduct = (id: string) => {
   box-shadow: var(--shadow-sm);
 }
 
+/* List View — mirrors the grid cards: hairline separators, mono headers and
+   a scroller so the table never overflows the page on narrow screens. */
+.catalog-list-card .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.exec-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  color: var(--fg-body);
+}
+
+.exec-table thead th {
+  padding: 0.75rem 1rem;
+  text-align: start;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.exec-table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.exec-row {
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.exec-row:hover {
+  background: var(--bg-subtle);
+}
+
+.exec-row:last-child td {
+  border-bottom: none;
+}
+
+.exec-row__media {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 220px;
+}
+
+.exec-row__meta {
+  min-width: 0;
+}
+
+.exec-row__name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--fg-heading);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.exec-row__name:hover {
+  color: var(--brand);
+}
+
+.exec-row__name:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* The stock pill is absolutely positioned, so its cell needs an anchor. */
+.stock-cell {
+  position: relative;
+  min-width: 96px;
+  min-height: 24px;
+}
+
 .rank-badge--inline {
   position: static !important;
   display: inline-flex !important;
@@ -1244,5 +1330,26 @@ const goToProduct = (id: string) => {
   padding: 2px 6px !important;
   border-radius: var(--radius-xs) !important;
   font-family: var(--font-mono) !important;
+}
+
+/* Touch devices: every control reaches the 44px minimum without bloating
+   the desktop density. */
+@media (pointer: coarse) {
+  .toolbar-select,
+  .toggle-pill,
+  .search-input,
+  .btn-quote-white,
+  .filter-chip,
+  .clear-all-link {
+    min-height: var(--wl-touch-min);
+  }
+
+  .view-toggle-btn,
+  .clear-search-btn {
+    width: var(--wl-touch-min);
+    min-width: var(--wl-touch-min);
+    height: var(--wl-touch-min);
+    min-height: var(--wl-touch-min);
+  }
 }
 </style>
